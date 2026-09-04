@@ -1,6 +1,6 @@
 pub mod auth;   // Dev A — register, login, JWT issue/refresh
 pub mod users;  // Dev A — user profile (GET /users/me)
-// pub mod cases;  // Dev A — next
+pub mod cases;  // Dev A — case creation, listing, assignment
 // pub mod documents;  // Dev B
 // pub mod audit;      // Dev B
 // pub mod signatures; // Dev B
@@ -15,6 +15,7 @@ pub fn router() -> Router<AppState> {
         .route("/health", get(health))
         .merge(auth::router())
         .merge(users::router())
+        .merge(cases::router())
 }
 
 async fn health() -> Json<Value> {
