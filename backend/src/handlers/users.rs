@@ -1,5 +1,5 @@
 use axum::{extract::State, routing::post, Json, Router};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::{
@@ -20,6 +20,12 @@ struct CreateUserRequest {
     role: Role,
 }
 
+/// Bootstrap rule: if the `users` table is empty, this endpoint is open (so the very
+/// first admin can be created with no chicken-and-egg auth problem). Once at least one
+/// user exists, every call must be an authenticated Admin. `caller` is optional on
+/// purpose — Option<AuthenticatedUser> resolves to None instead of rejecting when no/bad
+/// token is present, so we can check the bootstrap condition before deciding whether
+/// that mattered.
 async fn create_user(
     State(state): State<AppState>,
     caller: Option<AuthenticatedUser>,
@@ -47,7 +53,7 @@ async fn create_user(
         id,
         body.email,
         password_hash,
-        body.role
+        body.role as Role
     )
     .execute(&state.db)
     .await
