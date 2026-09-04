@@ -1,8 +1,10 @@
 mod config;
 mod db;
 mod error;
+mod extractors;
 mod handlers;
-// mod extractors; // AuthenticatedUser extractor — added alongside auth.rs
+mod jwt;
+mod models;
 
 use axum::Router;
 use sqlx::PgPool;
@@ -10,7 +12,9 @@ use tower_http::{cors::CorsLayer, trace::TraceLayer};
 
 use config::Config;
 
-
+/// Shared state injected into every handler. Kept intentionally small: a pool and the
+/// config (mainly for jwt_secret). No repository/service layer — handlers talk to
+/// Postgres directly via sqlx, per ARCHITECTURE.md.
 #[derive(Clone)]
 pub struct AppState {
     pub db: PgPool,
@@ -47,6 +51,6 @@ async fn main() {
         .await
         .expect("failed to bind port");
 
-    tracing::info!("backend gateway running on http://127.0.0.1:{port}");
+    tracing::info!("listening on port {port}");
     axum::serve(listener, app).await.expect("server error");
 }

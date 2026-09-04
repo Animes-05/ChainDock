@@ -1,18 +1,17 @@
-// pub mod auth;   // Dev A — next up: login, JWT issue/refresh
-// pub mod cases;  // Dev A
-// pub mod documents;  // Dev B
-// pub mod audit;      // Dev B
-// pub mod signatures; // Dev B
+pub mod auth;
+pub mod users;
+
 
 use axum::{routing::get, Json, Router};
 use serde_json::{json, Value};
 
 use crate::AppState;
 
-/// Temporary root router — just a health check so we can confirm the server boots
-/// and the DB pool connects before wiring real auth routes on top.
 pub fn router() -> Router<AppState> {
-    Router::new().route("/health", get(health))
+    Router::new()
+        .route("/health", get(health))
+        .merge(auth::router())
+        .merge(users::router())
 }
 
 async fn health() -> Json<Value> {
