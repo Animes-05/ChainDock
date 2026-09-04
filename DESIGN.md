@@ -74,8 +74,65 @@ Every mutating endpoint writes an `audit_log` row as part of the same transactio
 Keep styling plain and functional — CSS custom properties for theme like your portfolio, nothing elaborate. Judges are evaluating the idea and the live tamper-detection moment, not visual polish.
 
 ---
+## 4. Folder structure 
+```
+chaindock/
+├── backend/
+│   ├── Cargo.toml
+│   ├── .env.example              # DATABASE_URL, JWT_SECRET, PORT
+│   ├── migrations/                # sqlx migrations, one file per schema change
+│   │   ├── 0001_users.sql
+│   │   ├── 0002_cases.sql
+│   │   ├── 0003_case_assignments.sql
+│   │   ├── 0004_documents.sql
+│   │   ├── 0005_signatures.sql
+│   │   └── 0006_audit_log.sql
+│   ├── data/
+│   │   └── documents/             # uploaded file blobs (gitignored)
+│   └── src/
+│       ├── main.rs                # router setup, layers, state
+│       ├── config.rs              # env loading
+│       ├── db.rs                  # pool setup
+│       ├── error.rs               # AppError + IntoResponse impl
+│       ├── extractors.rs          # AuthenticatedUser extractor
+│       │
+│       handlers/
+|         ├── mod.rs
+|         ├── auth.rs                # Dev A: login, JWT issue/refresh, bcrypt
+│         ├── cases.rs               # Dev A: case CRUD, assignments
+│         ├── documents.rs           # Dev B: upload, metadata, search
+│         ├── audit.rs               # Dev B: hash-chain insert + verify
+│         └── signatures.rs          # Dev B: ed25519 sign/verify
+│
+├── frontend/
+│   ├── index.html                 # login
+│   ├── cases.html                 # case list
+│   ├── case-detail.html           # documents in a case
+│   ├── document.html              # document view + finalize/verify
+│   ├── audit.html                 # audit trail view
+│   ├── css/
+│   │   └── style.css              # theme vars, shared layout
+│   └── js/
+│       ├── api.js                 # fetch wrapper, JWT header handling
+│       ├── auth.js
+│       ├── cases.js
+│       ├── documents.js
+│       └── audit.js
+│
+├── scripts/
+│   └── seed_tamper.sql            # deliberately breaks one audit row for the demo
+│
+├── PRD.md
+├── ARCHITECTURE.md
+├── DESIGN.md
+├── PHASES.md
+├── ChainDock_Claude_Instructions.md
+├── README.md
+└── .gitignore
+```
 
-## 4. The demo moment (design this deliberately)
+
+## 5. The demo moment (design this deliberately)
 
 For the live demo to land, you need a way to *show* tampering being caught without actually building an attacker tool. Simplest approach:
 - Seed one audit-log row with a hand-edited `entry_hash` (via a `seed_tamper.sql` script, not a UI feature) before the demo
