@@ -3,22 +3,90 @@ use chrono::{Duration, Utc};
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use uuid::Uuid;
 
 use crate::{
     error::AppError,
+    extractors::{require_role, AuthenticatedUser},
     jwt,
-    models::{User, UserPublic},
+    models::{Role, User, UserPublic},
     AppState,
 };
 
-/// Refresh tokens live 30 days. Rotated on every use (old one revoked, new one issued),
-/// so reuse of a stolen token after rotation is visible as a revoked-token lookup.
+// Refresh tokens live 30 days. Rotated on every use (old one revoked, new one issued),
+// so reuse of a stolen token after rotation is visible as a revoked-token lookup.
+ 
 const REFRESH_TOKEN_TTL_DAYS: i64 = 30;
 
 pub fn router() -> Router<AppState> {
     Router::new()
+        .route("/auth/register", post(register))
         .route("/auth/login", post(login))
         .route("/auth/refresh", post(refresh))
+}
+
+#[derive(Deserialize)]
+struct RegisterRequest {
+    email: String,
+    password: String,
+    role: Role,
+}
+
+// Bootstrap rule: if the `users` table is empty, this is open (so the very first
+// admin can be created with no chicken-and-egg auth problem). Once at least one
+// user exists, every call must be an authenticated Admin.
+
+async fn register(
+    State(state): State<AppState>,
+    caller: Option<AuthenticatedUser>,
+    Json(body): Json<RegisterRequest>,
+) -> Result<Json<AuthResponse>, AppError> {
+    
+    let user_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM users")
+        .fetch_one(&state.db)
+        .await?;
+
+    if user_count > 0 {
+        let caller = caller.ok_or(AppError::Unauthorized)?;
+        require_role(&caller, &[Role::Admin])?;
+    }
+    // else: table is empty, bootstrap mode, no auth required — first call wins.
+
+    if body.password.len() < 8 {
+        return Err(AppError::BadRequest("password must be at least 8 characters".into()));
+    }
+
+    let password_hash = bcrypt::hash(&body.password, bcrypt::DEFAULT_COST)?;
+    let id = Uuid::new_v4();
+
+    sqlx::query!(
+        "INSERT INTO users (id, email, password_hash, role) VALUES ($1, $2, $3, $4::user_role)",
+        id,
+        body.email,
+        password_hash,
+        body.role as Role
+    )
+    .execute(&state.db)
+    .await
+    .map_err(|e| match e {
+        sqlx::Error::Database(db_err) if db_err.is_unique_violation() => {
+            AppError::BadRequest("a user with that email already exists".into())
+        }
+        other => AppError::Database(other),
+    })?;
+
+    let access_token = jwt::issue_access_token(id, body.role, &state.config.jwt_secret)?;
+    let refresh_token = issue_refresh_token(&state, id).await?;
+
+    Ok(Json(AuthResponse {
+        access_token,
+        refresh_token,
+        user: UserPublic {
+            id,
+            email: body.email,
+            role: body.role,
+        },
+    }))
 }
 
 #[derive(Deserialize)]
@@ -108,6 +176,7 @@ async fn refresh(
 /// Generates a random 32-byte token, stores its SHA-256 hash in the DB, returns the
 /// plaintext to hand to the client. The plaintext is never stored — only the hash,
 /// mirroring how passwords are handled.
+/// 
 async fn issue_refresh_token(state: &AppState, user_id: uuid::Uuid) -> Result<String, AppError> {
     let mut bytes = [0u8; 32];
     rand::thread_rng().fill_bytes(&mut bytes);

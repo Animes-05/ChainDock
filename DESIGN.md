@@ -40,6 +40,7 @@ Notes:
 ## 2. API surface (sketch)
 
 ```
+POST   /auth/register
 POST   /auth/login
 POST   /auth/refresh
 

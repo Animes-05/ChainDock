@@ -51,6 +51,6 @@ async fn main() {
         .await
         .expect("failed to bind port");
 
-    tracing::info!("listening on port {port}");
+    tracing::info!("backend gateway running on http://127.0.0.1:{port}");
     axum::serve(listener, app).await.expect("server error");
 }

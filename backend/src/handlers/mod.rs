@@ -1,6 +1,9 @@
-pub mod auth;
-pub mod users;
-
+pub mod auth;   // Dev A — register, login, JWT issue/refresh
+pub mod users;  // Dev A — user profile (GET /users/me)
+// pub mod cases;  // Dev A — next
+// pub mod documents;  // Dev B
+// pub mod audit;      // Dev B
+// pub mod signatures; // Dev B
 
 use axum::{routing::get, Json, Router};
 use serde_json::{json, Value};
