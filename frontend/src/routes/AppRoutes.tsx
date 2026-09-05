@@ -3,8 +3,8 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from './ProtectedRoutes';
 import { Login } from '../pages/auth/Login';
 import { Dashboard } from '../pages/Dashboard';
-// import { Cases } from '../pages/Cases';
-// import { CaseDetails } from '../pages/CaseDetails';
+import { Cases } from '../pages/Cases';
+import { CaseDetails } from '../pages/CaseDetails';
 // import { Documents } from '../pages/Documents';
 // import { DocumentDetails } from '../pages/DocumentDetails';
 // import { Evidence } from '../pages/Evidence';
@@ -24,6 +24,22 @@ export const AppRoutes: React.FC = () => {
         element={
           <ProtectedRoute>
             <Dashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/cases"
+        element={
+          <ProtectedRoute>
+            <Cases />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/cases/:id"
+        element={
+          <ProtectedRoute>
+            <CaseDetails />
           </ProtectedRoute>
         }
       />
