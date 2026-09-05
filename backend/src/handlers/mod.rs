@@ -1,8 +1,8 @@
 pub mod auth;   // Dev A — register, login, JWT issue/refresh
 pub mod users;  // Dev A — user profile (GET /users/me)
-// pub mod cases;  // Dev A — next
-// pub mod documents;  // Dev B
-// pub mod audit;      // Dev B
+pub mod cases;  // Dev A — case creation, listing, assignment
+pub mod documents; // Dev B — upload, metadata, search, download
+pub mod audit;      // Dev B — hash-chain append helper, verify-chain, audit-trail
 // pub mod signatures; // Dev B
 
 use axum::{routing::get, Json, Router};
@@ -15,6 +15,9 @@ pub fn router() -> Router<AppState> {
         .route("/health", get(health))
         .merge(auth::router())
         .merge(users::router())
+        .merge(cases::router())
+        .merge(documents::router())
+        .merge(audit::router())
 }
 
 async fn health() -> Json<Value> {

@@ -6,10 +6,10 @@ Two tracks: **Pitch track** (4 days, all 6 members) and **MVP track** (10 days, 
 
 ## Phase 0 — Day 0 (today/tomorrow)
 
-- [ ] Confirm final 6-person roster + roles for SIH portal registration
+- [x] Confirm final 6-person roster + roles for SIH portal registration
 - [ ] Backend devs: read ARCHITECTURE.md + DESIGN.md, agree on split (Dev A = auth/access, Dev B = documents/audit)
 - [ ] Frontend dev: sketch the 5 screens on paper/Figma, agree on component boundaries with backend API surface
-- [ ] Research/presentation trio: start building the "why this problem matters" narrative — find 1-2 real news stories about evidence tampering or lost case files in India to open the pitch with
+- [ ] Research/presentation : start building the "why this problem matters" narrative — find 1-2 real news stories about evidence tampering or lost case files in India to open the pitch with
 
 ---
 
@@ -32,27 +32,31 @@ Two tracks: **Pitch track** (4 days, all 6 members) and **MVP track** (10 days, 
 ## MVP track (Days 6-15, only if selected — 10 build days within this window)
 
 **Milestone 1 (Days 1-2 of build): Foundations**
-- Postgres schema live, migrations committed
-- Auth working end-to-end (login, JWT, role extractor)
-- Empty Axum project deployed to Railway (so deployment isn't a last-day surprise)
+- [x] Postgres schema live, migrations committed
+- [x] Auth working end-to-end (login, JWT, role extractor)
+- [ ] Empty Axum project deployed to Railway (so deployment isn't a last-day surprise)
 
 **Milestone 2 (Days 3-5): Core CRUD**
-- Case creation + assignment
-- Document upload + metadata + listing
-- Frontend: login screen + case list + case detail wired to real API
+- [x] Case creation + assignment
+- [x] Document upload + metadata + listing
+- [ ] Frontend: login screen + case list + case detail wired to real API
 
 **Milestone 3 (Days 6-7): The differentiator**
-- Audit log hash-chain implemented and verified with unit tests
-- Verify-chain endpoint + frontend view
-- Seed tamper script ready
-- Ed25519 sign/verify on finalize
+- [x] Audit log hash-chain implemented (`audit_log` table, `seq`-ordered, advisory-lock-guarded append)
+- [x] `create_case`, `assign_user`, `upload_document` retrofitted to write audit rows in the same transaction as the write they log
+- [x] `GET /audit/verify-chain` — walks the whole chain, returns pass/fail + exact break point
+- [x] `GET /cases/:id/audit-trail` — chronological trail, supervisor/admin only
+- [ ] Seed tamper script (`scripts/seed_tamper.sql`) ready
+- [ ] Ed25519 sign/verify on finalize
 
-**Milestone 4 (Days 8-9): Signatures + search**
+**Milestone 4 (Days 8-9): Signatures + search — next up**
 
-- Postgres full-text search on document metadata
-- Frontend: document view with finalize/verify actions
-- README with screenshots/GIF
-- Final deploy check on Railway
-- Rehearse the live demo end-to-end at least twice
+- [ ] Ed25519 keypair per signer; sign `sha256(file_bytes)` on document finalize (`signatures.rs`)
+- [ ] `GET /documents/:id/verify-signature`
+- [x] Postgres full-text search on document metadata (landed early, in Milestone 2)
+- [ ] Frontend: document view with finalize/verify actions
+- [ ] README with screenshots/GIF
+- [ ] Final deploy check on Railway
+- [ ] Rehearse the live demo end-to-end at least twice
 
-Small, descriptive commits per milestone step, public repo from day one — same workflow as your other projects.
+Small, descriptive commits per milestone step, public repo from day one.
