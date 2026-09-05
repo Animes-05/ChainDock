@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
-use crate::{error::AppError, extractors::AuthenticatedUser, models::Role, AppState};
+use crate::{error::AppError, extractors::AuthenticatedUser, handlers::audit, models::Role, AppState};
 
 // Local disk for MVP per ARCHITECTURE.md — swap for S3-compatible storage post-hackathon
 // if needed, not now.
@@ -63,6 +63,11 @@ struct DocumentResponse {
 /// Multipart upload: fields `title`, `doc_type`, `description` (optional), `file`.
 /// Hash is computed synchronously over the whole file — fine at hackathon file sizes,
 /// no need for a streaming hasher.
+///
+/// The file write to disk happens before the DB transaction opens (a written file with
+/// no DB row is harmless orphaned data; a committed DB row with no file would be a lot
+/// worse). The document insert + UPLOAD audit row are then one transaction, so they
+/// either both land or both roll back together.
 async fn upload_document(
     State(state): State<AppState>,
     user: AuthenticatedUser,
@@ -138,6 +143,8 @@ async fn upload_document(
         .await
         .map_err(|_| AppError::BadRequest("failed to write file to disk".into()))?;
 
+    let mut tx = state.db.begin().await?;
+
     sqlx::query!(
         r#"
         INSERT INTO documents (id, case_id, uploaded_by, title, doc_type, description, file_path, file_hash)
@@ -152,8 +159,12 @@ async fn upload_document(
         file_path,
         file_hash
     )
-    .execute(&state.db)
+    .execute(&mut *tx)
     .await?;
+
+    audit::append_entry(&mut tx, user.user_id, "UPLOAD", Some(doc_id), Some(case_id)).await?;
+
+    tx.commit().await?;
 
     Ok(Json(DocumentResponse {
         id: doc_id,
