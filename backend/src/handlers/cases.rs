@@ -9,6 +9,7 @@ use uuid::Uuid;
 use crate::{
     error::AppError,
     extractors::{require_role, AuthenticatedUser},
+    handlers::audit,
     models::Role,
     AppState,
 };
@@ -35,6 +36,7 @@ struct CaseResponse {
 
 /// Supervisor/admin only. The creator is auto-assigned to their own case — otherwise
 /// a supervisor who creates a case couldn't see it under the access-scoping model.
+/// Writes a CREATE_CASE audit row in the same transaction as the insert + assignment.
 async fn create_case(
     State(state): State<AppState>,
     user: AuthenticatedUser,
@@ -73,6 +75,8 @@ async fn create_case(
     )
     .execute(&mut *tx)
     .await?;
+
+    audit::append_entry(&mut tx, user.user_id, "CREATE_CASE", None, Some(case_id)).await?;
 
     tx.commit().await?;
 
@@ -139,7 +143,8 @@ struct AssignRequest {
 }
 
 /// Supervisor/admin only. Idempotent-ish: a duplicate assignment is a client error,
-/// not a silent no-op — keeps intent explicit for the audit trail (added on Dev B's side).
+/// not a silent no-op — keeps intent explicit for the audit trail. Writes an
+/// ASSIGN_USER audit row in the same transaction as the assignment insert.
 async fn assign_user(
     State(state): State<AppState>,
     user: AuthenticatedUser,
@@ -156,12 +161,14 @@ async fn assign_user(
         return Err(AppError::NotFound);
     }
 
+    let mut tx = state.db.begin().await?;
+
     sqlx::query!(
         "INSERT INTO case_assignments (case_id, user_id) VALUES ($1, $2)",
         case_id,
         body.user_id
     )
-    .execute(&state.db)
+    .execute(&mut *tx)
     .await
     .map_err(|e| match e {
         sqlx::Error::Database(db_err) if db_err.is_unique_violation() => {
@@ -172,6 +179,10 @@ async fn assign_user(
         }
         other => AppError::Database(other),
     })?;
+
+    audit::append_entry(&mut tx, user.user_id, "ASSIGN_USER", None, Some(case_id)).await?;
+
+    tx.commit().await?;
 
     Ok(Json(serde_json::json!({ "status": "assigned" })))
 }
