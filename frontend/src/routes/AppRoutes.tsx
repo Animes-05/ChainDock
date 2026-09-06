@@ -9,8 +9,8 @@ import { CaseDetails } from '../pages/CaseDetails';
 import { AuditLog } from '../pages/AuditLog';
 import { Documents } from '../pages/Documents';
 import { DocumentDetails } from '../pages/DocumentDetails';
-// import { Evidence } from '../pages/Evidence';
-// import { Security } from '../pages/Security';
+import { Evidence } from '../pages/Evidence';
+import { Security } from '../pages/Security';
 import { Users } from '../pages/Users';
 import { Unauthorized } from '../pages/errors/Unauthorized';
 
@@ -57,7 +57,7 @@ export const AppRoutes: React.FC = () => {
         }
       />
 
-            <Route
+      <Route
         path="/documents"
         element={
           <ProtectedRoute>
@@ -75,6 +75,23 @@ export const AppRoutes: React.FC = () => {
         }
       />
 
+      <Route
+        path="/evidence"
+        element={
+          <ProtectedRoute>
+            <Evidence />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/security"
+        element={
+          <ProtectedRoute>
+            <Security />
+          </ProtectedRoute>
+        }
+      />
       
       <Route
         path="/users"
