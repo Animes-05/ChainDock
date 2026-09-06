@@ -25,15 +25,20 @@ export function normalizeCase(c: any, fallback?: Partial<Case>): Case {
 }
 
 export async function getCases(): Promise<Case[]> {
-  const res = await api.get<Case[] | { cases: Case[] } | { data: Case[] }>('/cases');
+  const res = await api.get<Case[] | { cases: Case[] } | { data: Case[] } | { items: Case[] } | { results: Case[] }>('/cases');
   let rawList: any[] = [];
   if (Array.isArray(res.data)) {
     rawList = res.data;
   } else if (res.data && typeof res.data === 'object') {
-    if ('cases' in res.data && Array.isArray((res.data as { cases: Case[] }).cases)) {
-      rawList = (res.data as { cases: Case[] }).cases;
-    } else if ('data' in res.data && Array.isArray((res.data as { data: Case[] }).data)) {
-      rawList = (res.data as { data: Case[] }).data;
+    const d = res.data as Record<string, unknown>;
+    if (Array.isArray(d.cases)) {
+      rawList = d.cases;
+    } else if (Array.isArray(d.data)) {
+      rawList = d.data;
+    } else if (Array.isArray(d.items)) {
+      rawList = d.items;
+    } else if (Array.isArray(d.results)) {
+      rawList = d.results;
     }
   }
   return rawList.map((c) => normalizeCase(c));
@@ -59,12 +64,16 @@ export async function createCase(data: {
   const payload = {
     title: data.title.trim(),
     case_number: data.case_number.trim(),
+    description: data.description?.trim() || '',
+    priority: data.priority || 'HIGH',
+    jurisdiction: data.jurisdiction?.trim() || 'Jurisdiction Alpha',
+    lead_officer: data.lead_officer?.trim() || 'Officer S. Jenkins',
   };
 
   const res = await api.post<Case | { case: Case } | { data: Case }>('/cases', payload);
   if (res.data && typeof res.data === 'object') {
     const raw = 'case' in res.data ? (res.data as any).case : 'data' in res.data ? (res.data as any).data : res.data;
-    return normalizeCase(raw, data as Partial<Case>);
+    return normalizeCase(raw, payload as Partial<Case>);
   }
   throw new Error('Failed to create case: Invalid response from backend');
 }
