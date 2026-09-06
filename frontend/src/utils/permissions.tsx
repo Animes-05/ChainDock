@@ -11,7 +11,13 @@ export const PERMISSIONS = {
   CAN_VERIFY_DOCUMENT: ['INVESTIGATOR', 'SUPERVISOR', 'ADMIN'] as Role[],
   CAN_VIEW_EVIDENCE: ['INVESTIGATOR', 'SUPERVISOR', 'ADMIN'] as Role[],
   CAN_TRANSFER_CUSTODY: ['INVESTIGATOR', 'SUPERVISOR', 'ADMIN'] as Role[],
-  CAN_VIEW_AUDIT: ['SUPERVISOR', 'ADMIN'] as Role[],
+  // audit_trail (GET /cases/:id/audit-trail) is now open to all three roles,
+  // scoped to cases the caller is assigned to (see audit.rs assert_case_access) —
+  // this used to be SUPERVISOR/ADMIN only, matching the old backend gate.
+  CAN_VIEW_AUDIT: ['INVESTIGATOR', 'SUPERVISOR', 'ADMIN'] as Role[],
+  // NOTE: GET /audit/verify-chain (the whole-chain walk) is still Admin-only
+  // on the backend (audit.rs verify_chain) — unrelated to the audit-trail
+  // change above and left as-is here.
   CAN_RUN_CHAIN_VERIFICATION: ['SUPERVISOR', 'ADMIN'] as Role[],
   CAN_MANAGE_USERS: ['ADMIN'] as Role[],
   CAN_VIEW_SECURITY_CENTER: ['SUPERVISOR', 'ADMIN'] as Role[],
@@ -29,6 +35,10 @@ export function canFinalize(role?: Role): boolean {
 
 export function canSign(role?: Role): boolean {
   return hasPermission(role, PERMISSIONS.CAN_SIGN_DOCUMENT);
+}
+
+export function canViewAudit(role?: Role): boolean {
+  return hasPermission(role, PERMISSIONS.CAN_VIEW_AUDIT);
 }
 
 export function canVerifyChain(role?: Role): boolean {
