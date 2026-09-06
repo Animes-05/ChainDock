@@ -6,11 +6,11 @@ import { Login } from '../pages/auth/Login';
 import { Dashboard } from '../pages/Dashboard';
 import { Cases } from '../pages/Cases';
 import { CaseDetails } from '../pages/CaseDetails';
-// import { Documents } from '../pages/Documents';
-// import { DocumentDetails } from '../pages/DocumentDetails';
-// import { Evidence } from '../pages/Evidence';
-// import { AuditLog } from '../pages/AuditLog';
-// import { Security } from '../pages/Security';
+import { AuditLog } from '../pages/AuditLog';
+import { Documents } from '../pages/Documents';
+import { DocumentDetails } from '../pages/DocumentDetails';
+import { Evidence } from '../pages/Evidence';
+import { Security } from '../pages/Security';
 import { Users } from '../pages/Users';
 import { Unauthorized } from '../pages/errors/Unauthorized';
 
@@ -47,6 +47,52 @@ export const AppRoutes: React.FC = () => {
           </ProtectedRoute>
         }
       />
+
+      <Route
+        path="/audit"
+        element={
+          <ProtectedRoute>
+            <AuditLog />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/documents"
+        element={
+          <ProtectedRoute>
+            <Documents />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/documents/:id"
+        element={
+          <ProtectedRoute>
+            <DocumentDetails />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/evidence"
+        element={
+          <ProtectedRoute>
+            <Evidence />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/security"
+        element={
+          <ProtectedRoute>
+            <Security />
+          </ProtectedRoute>
+        }
+      />
+      
       <Route
         path="/users"
         element={

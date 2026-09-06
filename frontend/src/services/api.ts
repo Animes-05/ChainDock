@@ -35,23 +35,30 @@ export class ApiClient {
     const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
     const url = `${cleanBase}${cleanEndpoint}`;
 
+    const { data: requestData, headers: _customHeaders, ...fetchOptions } = options;
+    const isFormData = requestData instanceof FormData;
+    const hasJsonBody = requestData !== undefined && !isFormData;
+
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
       ...this.getAuthHeader(),
       ...(options.headers as Record<string, string>),
     };
 
-    const { data: requestData, headers: _customHeaders, ...fetchOptions } = options;
+    if (hasJsonBody) {
+      headers['Content-Type'] = 'application/json';
+    }
+
     const config: RequestInit = {
       ...fetchOptions,
       headers,
     };
 
-    if (requestData !== undefined && !(requestData instanceof FormData)) {
+    if (hasJsonBody) {
       config.body = JSON.stringify(requestData);
-    } else if (requestData instanceof FormData) {
+    } else if (isFormData) {
+      // Let fetch calculate multipart/form-data boundary for Axum Multipart extractor
       delete headers['Content-Type'];
-      config.body = requestData;
+      config.body = requestData as FormData;
     }
 
     let response: Response;
@@ -75,7 +82,16 @@ export class ApiClient {
     }
 
     if (!response.ok) {
+      if (response.status === 401) {
+        sessionStorage.removeItem('chaindock_token');
+        localStorage.removeItem('chaindock_token');
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('chaindock:unauthorized'));
+        }
+      }
+
       const errorObj = typeof data === 'object' && data !== null ? (data as Record<string, unknown>) : null;
+      const textError = typeof data === 'string' && data.trim().length > 0 ? data.trim() : null;
       const errorMsg =
         errorObj?.error
           ? String(errorObj.error)
@@ -83,6 +99,8 @@ export class ApiClient {
           ? String(errorObj.message)
           : errorObj?.detail
           ? String(errorObj.detail)
+          : textError
+          ? textError
           : `HTTP ${response.status}: ${response.statusText || 'Request failed'}`;
 
       throw new ApiError(errorMsg, response.status, endpoint, data);
@@ -97,6 +115,10 @@ export class ApiClient {
 
   post<T>(endpoint: string, data?: unknown, headers?: Record<string, string>) {
     return this.request<T>(endpoint, { method: 'POST', data, headers });
+  }
+
+  put<T>(endpoint: string, data?: unknown, headers?: Record<string, string>) {
+    return this.request<T>(endpoint, { method: 'PUT', data, headers });
   }
 
   patch<T>(endpoint: string, data?: unknown, headers?: Record<string, string>) {
