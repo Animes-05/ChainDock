@@ -7,8 +7,8 @@ import { Dashboard } from '../pages/Dashboard';
 import { Cases } from '../pages/Cases';
 import { CaseDetails } from '../pages/CaseDetails';
 import { AuditLog } from '../pages/AuditLog';
-// import { Documents } from '../pages/Documents';
-// import { DocumentDetails } from '../pages/DocumentDetails';
+import { Documents } from '../pages/Documents';
+import { DocumentDetails } from '../pages/DocumentDetails';
 // import { Evidence } from '../pages/Evidence';
 // import { Security } from '../pages/Security';
 import { Users } from '../pages/Users';
@@ -56,6 +56,25 @@ export const AppRoutes: React.FC = () => {
           </ProtectedRoute>
         }
       />
+
+            <Route
+        path="/documents"
+        element={
+          <ProtectedRoute>
+            <Documents />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/documents/:id"
+        element={
+          <ProtectedRoute>
+            <DocumentDetails />
+          </ProtectedRoute>
+        }
+      />
+
       
       <Route
         path="/users"
