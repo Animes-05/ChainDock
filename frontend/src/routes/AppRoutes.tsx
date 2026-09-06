@@ -6,10 +6,10 @@ import { Login } from '../pages/auth/Login';
 import { Dashboard } from '../pages/Dashboard';
 import { Cases } from '../pages/Cases';
 import { CaseDetails } from '../pages/CaseDetails';
+import { AuditLog } from '../pages/AuditLog';
 // import { Documents } from '../pages/Documents';
 // import { DocumentDetails } from '../pages/DocumentDetails';
 // import { Evidence } from '../pages/Evidence';
-// import { AuditLog } from '../pages/AuditLog';
 // import { Security } from '../pages/Security';
 import { Users } from '../pages/Users';
 import { Unauthorized } from '../pages/errors/Unauthorized';
@@ -47,6 +47,16 @@ export const AppRoutes: React.FC = () => {
           </ProtectedRoute>
         }
       />
+
+      <Route
+        path="/audit"
+        element={
+          <ProtectedRoute>
+            <AuditLog />
+          </ProtectedRoute>
+        }
+      />
+      
       <Route
         path="/users"
         element={
