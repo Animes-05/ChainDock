@@ -46,36 +46,38 @@ export async function getUsers(): Promise<User[]> {
   return rawList.map(normalizeUser);
 }
 
+/**
+ * There is no POST /users route — the only way to create a user is
+ * POST /auth/register (auth.rs), which is Admin-gated once at least one
+ * user exists (bootstrap rule aside) and takes { email, password, role }.
+ * It does not accept name/badge_number/department/jurisdiction_node —
+ * those fields don't exist on the `users` table (see migrations/0001_users.sql),
+ * so we don't pretend they were persisted; normalizeUser() fills them with
+ * display-only fallbacks the same way it does for any other user row.
+ */
 export async function createUser(payload: CreateUserPayload): Promise<User> {
   const body = {
-    name: payload.name,
     email: payload.email,
-    role: String(payload.role || 'investigator').toLowerCase(),
-    badge_number: payload.badge_number,
-    department: payload.department,
-    jurisdiction_node: payload.jurisdiction_node,
     password: payload.password || 'Temporary@123',
+    role: String(payload.role || 'investigator').toLowerCase(),
   };
 
-  try {
-    const res = await api.post<any>('/users', body);
-    const created = res.data?.user || res.data;
-    return normalizeUser(created);
-  } catch (err: any) {
-    // If backend uses /auth/register for user provisioning, attempt fallback
-    if (err?.status === 404) {
-      const altRes = await api.post<any>('/auth/register', body);
-      const created = altRes.data?.user || altRes.data;
-      return normalizeUser(created);
-    }
-    throw err;
-  }
+  const res = await api.post<any>('/auth/register', body);
+  const created = res.data?.user || res.data;
+  return normalizeUser(created);
 }
 
-export async function updateUser(id: string, payload: UpdateUserPayload): Promise<User> {
-  const res = await api.patch<any>(`/users/${id}`, payload);
-  const updated = res.data?.user || res.data;
-  return normalizeUser(updated);
+/**
+ * NOT BACKED BY THE REAL API. There is no PATCH /users/:id route and no
+ * `status` column on `users` (migrations/0001_users.sql has no such field) —
+ * account suspension isn't implemented server-side. This throws instead of
+ * silently faking success, so callers (Users.tsx) surface a clear error
+ * rather than showing a status flip that never actually persisted.
+ */
+export async function updateUser(_id: string, _payload: UpdateUserPayload): Promise<User> {
+  throw new Error(
+    'User status updates are not implemented on the backend yet (no PATCH /users/:id route, no status column).'
+  );
 }
 
 export async function toggleUserStatus(id: string, currentStatus: 'ACTIVE' | 'SUSPENDED'): Promise<User> {
@@ -83,22 +85,15 @@ export async function toggleUserStatus(id: string, currentStatus: 'ACTIVE' | 'SU
   return updateUser(id, { status: newStatus });
 }
 
-export async function rotateUserKey(id: string): Promise<{ publicKey: string; rotatedAt: string }> {
-  try {
-    const res = await api.post<any>(`/users/${id}/rotate-key`, {});
-    return {
-      publicKey: res.data?.public_key || res.data?.publicKey || `ed25519:${Date.now().toString(16)}`,
-      rotatedAt: res.data?.rotated_at || new Date().toISOString(),
-    };
-  } catch (err) {
-    // If dedicated endpoint is not yet mounted on backend, fallback to PATCH
-    const generatedKey = `ed25519:${Date.now().toString(16).substring(0, 10)}`;
-    await updateUser(id, { status: 'ACTIVE' });
-    return {
-      publicKey: generatedKey,
-      rotatedAt: new Date().toISOString(),
-    };
-  }
+/**
+ * NOT BACKED BY THE REAL API. Ed25519 signing keys don't exist yet at all —
+ * signatures.rs (Milestone 4) hasn't been built, so there is nothing to
+ * rotate. This throws rather than fabricating a fake key client-side.
+ */
+export async function rotateUserKey(_id: string): Promise<{ publicKey: string; rotatedAt: string }> {
+  throw new Error(
+    'Key rotation is not available yet — Ed25519 signing keys are introduced in Milestone 4 (signatures.rs), which is not built.'
+  );
 }
 
 export function getKeyEnclaveDetails(user: User): KeyEnclaveDetails {

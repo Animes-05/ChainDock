@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, Role } from '../types';
-import { getCurrentUser, login as authLogin, logout as authLogout } from '../services/auth';
+import { api, ApiError } from '../services/api';
+import { normalizeAuthUser, login as authLogin, logout as authLogout } from '../services/auth';
 
 interface AuthContextType {
   user: User | null;
@@ -12,15 +13,6 @@ interface AuthContextType {
   enterEvaluationSession: (role?: Role) => void;
 }
 
-const DEFAULT_OFFICER: User = {
-  id: 'usr-officer-01',
-  name: 'Authorized Officer',
-  email: 'officer@police.gov.in',
-  role: 'ADMIN',
-  badgeNumber: 'POL-2026',
-  jurisdictionNode: 'Node Alpha',
-};
-
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -28,33 +20,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const signedOut = sessionStorage.getItem('chaindock_signed_out');
-    const existing = getCurrentUser();
-    if (existing) {
-      setUser(existing);
-    } else if (!signedOut) {
-      // Automatically provide an active session so user can immediately browse and inspect all pages
-      sessionStorage.setItem('chaindock_token', 'session-token-active');
-      sessionStorage.setItem('chaindock_user', JSON.stringify(DEFAULT_OFFICER));
-      setUser(DEFAULT_OFFICER);
-    } else {
-      setUser(null);
+    let cancelled = false;
+
+    // Restore a session by validating the stored token against the backend
+    // (GET /users/me) rather than trusting whatever's cached in storage.
+    // Previously this block silently logged every visitor in as a fake
+    // Admin user with a fake token whenever no session existed — no route
+    // was ever actually protected, and /auth/login was mostly decorative.
+    async function restoreSession() {
+      const token = sessionStorage.getItem('chaindock_token') || localStorage.getItem('chaindock_token');
+      if (!token) {
+        if (!cancelled) setUser(null);
+        if (!cancelled) setIsLoading(false);
+        return;
+      }
+
+      try {
+        const res = await api.get<any>('/users/me');
+        const raw = res.data?.user || res.data;
+        const validated = normalizeAuthUser(raw);
+        if (!cancelled) {
+          setUser(validated);
+          sessionStorage.setItem('chaindock_user', JSON.stringify(validated));
+        }
+      } catch (err) {
+        // Invalid/expired token (401) or backend unreachable — either way,
+        // don't keep the person "logged in" on faith. Clear the stale
+        // session and send them back to /login.
+        if (!(err instanceof ApiError) || err.status === 401 || err.status === 0) {
+          authLogout();
+        }
+        if (!cancelled) setUser(null);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
     }
-    setIsLoading(false);
+
+    restoreSession();
 
     const handleUnauthorized = () => {
-      sessionStorage.setItem('chaindock_signed_out', 'true');
       setUser(null);
     };
 
     window.addEventListener('chaindock:unauthorized', handleUnauthorized);
-    return () => window.removeEventListener('chaindock:unauthorized', handleUnauthorized);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('chaindock:unauthorized', handleUnauthorized);
+    };
   }, []);
 
   const login = async (email: string, password?: string) => {
     setIsLoading(true);
     try {
-      sessionStorage.removeItem('chaindock_signed_out');
       const res = await authLogin(email, password);
       setUser(res.user);
     } finally {
@@ -62,26 +79,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  /**
+   * Explicit, user-initiated "try it without a real account" shortcut for
+   * judges/evaluators — triggered only by a deliberate click in Login.tsx,
+   * never automatically. This does NOT hit the backend and does NOT grant
+   * a real session; anything gated by a real AuthenticatedUser extractor
+   * call server-side (case access, audit trail, etc.) will still 401/403
+   * against a real backend, since there's no genuine JWT behind this token.
+   */
   const enterEvaluationSession = (targetRole: Role = 'ADMIN') => {
-    sessionStorage.removeItem('chaindock_signed_out');
     const roleUpper = String(targetRole).toUpperCase() as Role;
     const evalUser: User = {
-      ...DEFAULT_OFFICER,
+      id: 'eval-session-user',
       name: roleUpper === 'ADMIN' ? 'Chief Registrar (Admin)' : 'Inspector Priya Sharma',
       email: roleUpper === 'ADMIN' ? 'admin@police.gov.in' : 'officer@police.gov.in',
       role: roleUpper,
       badgeNumber: roleUpper === 'ADMIN' ? 'ADM-01' : 'POL-8821',
       badge_number: roleUpper === 'ADMIN' ? 'ADM-01' : 'POL-8821',
+      status: 'ACTIVE',
     };
-    sessionStorage.setItem('chaindock_token', 'session-token-active');
+    sessionStorage.setItem('chaindock_token', 'evaluation-preview-not-a-real-session');
     sessionStorage.setItem('chaindock_user', JSON.stringify(evalUser));
-    localStorage.setItem('chaindock_token', 'session-token-active');
-    localStorage.setItem('chaindock_user', JSON.stringify(evalUser));
     setUser(evalUser);
   };
 
   const logout = () => {
-    sessionStorage.setItem('chaindock_signed_out', 'true');
     authLogout();
     setUser(null);
   };

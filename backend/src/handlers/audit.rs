@@ -183,14 +183,43 @@ struct AuditTrailEntry {
     created_at: DateTime<Utc>,
 }
 
-/// Supervisor/admin only, per DESIGN.md. Chronological trail for one case — joins to
-/// `users` for a readable actor email instead of a bare UUID in the frontend table.
+/// Same access model as documents.rs::assert_case_access: supervisor/admin see every
+/// case's trail; an investigator only sees the trail for a case they're assigned to
+/// via case_assignments. This mirrors who can *see* a case at all in GET /cases —
+/// an investigator viewing their own case's audit trail is not a privilege escalation,
+/// it's the same data they already have access to via the case detail view.
+async fn assert_case_access(
+    state: &AppState,
+    user: &AuthenticatedUser,
+    case_id: Uuid,
+) -> Result<(), AppError> {
+    if matches!(user.role, Role::Supervisor | Role::Admin) {
+        return Ok(());
+    }
+
+    let assigned = sqlx::query_scalar!(
+        "SELECT 1 FROM case_assignments WHERE case_id = $1 AND user_id = $2",
+        case_id,
+        user.user_id
+    )
+    .fetch_optional(&state.db)
+    .await?;
+
+    if assigned.is_some() {
+        Ok(())
+    } else {
+        Err(AppError::Forbidden)
+    }
+}
+
+/// Open to all three roles, but scoped: investigators only get the trail for cases
+/// they're assigned to (assert_case_access); supervisor/admin get any case's trail.
 async fn audit_trail(
     State(state): State<AppState>,
     user: AuthenticatedUser,
     Path(case_id): Path<Uuid>,
 ) -> Result<Json<Vec<AuditTrailEntry>>, AppError> {
-    require_role(&user, &[Role::Supervisor, Role::Admin])?;
+    assert_case_access(&state, &user, case_id).await?;
 
     let rows = sqlx::query!(
         r#"
