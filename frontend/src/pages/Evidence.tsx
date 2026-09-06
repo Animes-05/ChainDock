@@ -6,12 +6,14 @@ import { ChainOfCustodyLog } from '../components/evidence/ChainOfCustodyLog';
 import { ChainOfCustodyTimeline } from '../components/evidence/ChainOfCustodyTimeline';
 import { Modal } from '../components/ui/Modal';
 import { evidenceService } from '../services/evidence';
+import { casesService } from '../services/cases';
 import { EvidenceItem } from '../types';
 import { BackendUnavailable } from '../components/common/BackendUnavailable';
 import { ApiError } from '../services/api';
 
 export const Evidence: React.FC = () => {
   const [evidenceItems, setEvidenceItems] = useState<EvidenceItem[]>([]);
+  const [activeCaseId, setActiveCaseId] = useState<string>('cd-case-0412');
   const [loading, setLoading] = useState<boolean>(true);
   const [backendError, setBackendError] = useState<{ status: number; endpoint: string; message: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -42,6 +44,11 @@ export const Evidence: React.FC = () => {
 
   useEffect(() => {
     fetchEvidence();
+    casesService.getCases().then((list) => {
+      if (list && list.length > 0 && list[0]?.id) {
+        setActiveCaseId(list[0].id);
+      }
+    }).catch(() => {});
   }, []);
 
   const handleUploadSubmit = async (data: {
@@ -52,7 +59,7 @@ export const Evidence: React.FC = () => {
     location: string;
   }) => {
     await evidenceService.createEvidence({
-      case_id: 'cd-case-0412',
+      case_id: activeCaseId,
       item_number: data.item_number,
       name: data.name,
       category: data.category,
@@ -78,11 +85,12 @@ export const Evidence: React.FC = () => {
   };
 
   const filteredItems = evidenceItems.filter((item) => {
+    const q = searchQuery.toLowerCase();
     const matchesSearch =
-      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.item_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.custodian.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.location.toLowerCase().includes(searchQuery.toLowerCase());
+      (item.name || '').toLowerCase().includes(q) ||
+      (item.item_number || '').toLowerCase().includes(q) ||
+      (item.custodian || '').toLowerCase().includes(q) ||
+      (item.location || '').toLowerCase().includes(q);
 
     const matchesStatus = statusFilter === 'ALL' || item.status === statusFilter;
 
@@ -188,7 +196,7 @@ export const Evidence: React.FC = () => {
       <EvidenceUpload
         isOpen={isUploadOpen}
         onClose={() => setIsUploadOpen(false)}
-        caseId="cd-case-0412"
+        caseId={activeCaseId}
         onSubmit={handleUploadSubmit}
       />
 

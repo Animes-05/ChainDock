@@ -4,6 +4,7 @@ import { AppShell } from '../components/layout/AppShell';
 import { DocumentList } from '../components/documents/DocumentList';
 import { DocumentUpload } from '../components/documents/DocumentUpload';
 import { documentsService } from '../services/documents';
+import { casesService } from '../services/cases';
 import { Document as DocType } from '../types';
 import { BackendUnavailable } from '../components/common/BackendUnavailable';
 import { ApiError } from '../services/api';
@@ -11,6 +12,7 @@ import { ApiError } from '../services/api';
 export const Documents: React.FC = () => {
   const navigate = useNavigate();
   const [documents, setDocuments] = useState<DocType[]>([]);
+  const [activeCaseId, setActiveCaseId] = useState<string>('cd-case-0412');
   const [loading, setLoading] = useState<boolean>(true);
   const [backendError, setBackendError] = useState<{ status: number; endpoint: string; message: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -37,6 +39,11 @@ export const Documents: React.FC = () => {
 
   useEffect(() => {
     fetchDocuments();
+    casesService.getCases().then((list) => {
+      if (list && list.length > 0 && list[0]?.id) {
+        setActiveCaseId(list[0].id);
+      }
+    }).catch(() => {});
   }, []);
 
   const handleUploadComplete = async (
@@ -50,15 +57,16 @@ export const Documents: React.FC = () => {
   };
 
   const filteredDocs = documents.filter((doc) => {
-    const matchesSearch =
-      doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doc.sha256.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doc.file_type.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doc.case_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doc.case_id?.toLowerCase().includes(searchQuery.toLowerCase());
+    const q = searchQuery.toLowerCase();
+    const titleMatch = (doc.title || '').toLowerCase().includes(q);
+    const hashMatch = (doc.sha256 || '').toLowerCase().includes(q);
+    const typeMatch = (doc.file_type || '').toLowerCase().includes(q);
+    const caseNumMatch = (doc.case_number || '').toLowerCase().includes(q);
+    const caseIdMatch = (doc.case_id || '').toLowerCase().includes(q);
+    const matchesSearch = titleMatch || hashMatch || typeMatch || caseNumMatch || caseIdMatch;
 
     const matchesType =
-      typeFilter === 'ALL' || doc.document_type.toUpperCase().includes(typeFilter);
+      typeFilter === 'ALL' || (doc.document_type || '').toUpperCase().includes(typeFilter);
 
     return matchesSearch && matchesType;
   });
@@ -162,7 +170,7 @@ export const Documents: React.FC = () => {
       <DocumentUpload
         isOpen={isUploadOpen}
         onClose={() => setIsUploadOpen(false)}
-        caseId="cd-case-0412"
+        caseId={activeCaseId}
         onUpload={handleUploadComplete}
       />
     </AppShell>

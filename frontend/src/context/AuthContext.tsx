@@ -41,6 +41,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
     }
     setIsLoading(false);
+
+    const handleUnauthorized = () => {
+      sessionStorage.setItem('chaindock_signed_out', 'true');
+      setUser(null);
+    };
+
+    window.addEventListener('chaindock:unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('chaindock:unauthorized', handleUnauthorized);
   }, []);
 
   const login = async (email: string, password?: string) => {
