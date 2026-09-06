@@ -1,37 +1,17 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { DEMO_USERS } from '../../services/auth';
-import { Role } from '../../types';
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, enterEvaluationSession } = useAuth();
 
-  const [email, setEmail] = useState('rajesh.sharma@police.gov.in');
-  const [password, setPassword] = useState('Investigator#2026');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [jurisdiction, setJurisdiction] = useState('Node Alpha');
-  const [sessionToken, setSessionToken] = useState('849201');
+  const [sessionToken, setSessionToken] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
-  const handleSelectRole = (r: Role) => {
-    const demoUser = DEMO_USERS[r];
-    setEmail(demoUser.email);
-    if (r === 'INVESTIGATOR') {
-      setPassword('Investigator#2026');
-      setSessionToken('849201');
-      setJurisdiction('Node Alpha');
-    } else if (r === 'SUPERVISOR') {
-      setPassword('Supervisor#2026');
-      setSessionToken('491028');
-      setJurisdiction('Node Beta');
-    } else {
-      setPassword('AdminRoot#2026');
-      setSessionToken('994012');
-      setJurisdiction('Root Central');
-    }
-  };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,8 +21,12 @@ export const Login: React.FC = () => {
     try {
       await login(email, password);
       navigate('/dashboard');
-    } catch {
-      setError('Unable to authenticate with cryptographic gateway. Check credentials.');
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Unable to authenticate with backend at http://127.0.0.1:3000. Ensure server is running.'
+      );
     } finally {
       setLoading(false);
     }
@@ -127,54 +111,6 @@ export const Login: React.FC = () => {
                 </div>
               </div>
             </div>
-
-            {/* Quick Demo Role Selector (PRD Section 3) */}
-            <div className="pt-4 border-t border-white/10">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-300/80 mb-2 font-mono flex items-center justify-between">
-                <span>Select Role (Evaluator Sandbox)</span>
-                <span className="text-white/40">1-CLICK LOGIN</span>
-              </div>
-              <div className="grid grid-cols-3 gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => handleSelectRole('INVESTIGATOR')}
-                  className={`p-2 rounded text-left flex flex-col gap-0.5 transition-colors border ${
-                    email === DEMO_USERS.INVESTIGATOR.email
-                      ? 'bg-emerald-500/20 border-emerald-400 text-white font-semibold'
-                      : 'bg-white/5 border-white/10 hover:bg-white/10 text-white/80'
-                  }`}
-                >
-                  <span className="text-[11px] font-bold">Investigator</span>
-                  <span className="text-[9px] text-white/50 font-mono">Tier 1 · Case Upload</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleSelectRole('SUPERVISOR')}
-                  className={`p-2 rounded text-left flex flex-col gap-0.5 transition-colors border ${
-                    email === DEMO_USERS.SUPERVISOR.email
-                      ? 'bg-emerald-500/20 border-emerald-400 text-white font-semibold'
-                      : 'bg-white/5 border-white/10 hover:bg-white/10 text-white/80'
-                  }`}
-                >
-                  <span className="text-[11px] font-bold">Supervisor</span>
-                  <span className="text-[9px] text-white/50 font-mono">Tier 2 · Sign/Audit</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleSelectRole('ADMIN')}
-                  className={`p-2 rounded text-left flex flex-col gap-0.5 transition-colors border ${
-                    email === DEMO_USERS.ADMIN.email
-                      ? 'bg-emerald-500/20 border-emerald-400 text-white font-semibold'
-                      : 'bg-white/5 border-white/10 hover:bg-white/10 text-white/80'
-                  }`}
-                >
-                  <span className="text-[11px] font-bold">Admin</span>
-                  <span className="text-[9px] text-white/50 font-mono">Tier 3 · Tamper Demo</span>
-                </button>
-              </div>
-            </div>
           </section>
 
           {/* Right Panel: Interactive Authentication Form */}
@@ -194,9 +130,22 @@ export const Login: React.FC = () => {
               </div>
 
               {error && (
-                <div className="p-3 bg-red-100 text-red-900 rounded-lg text-xs font-medium border border-red-300 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[18px] text-red-700">error</span>
-                  <span>{error}</span>
+                <div className="p-3.5 bg-red-100 text-red-900 rounded-xl text-xs font-medium border border-red-300 flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[18px] text-red-700 shrink-0">error</span>
+                    <span>{error}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      enterEvaluationSession('ADMIN');
+                      navigate('/dashboard');
+                    }}
+                    className="self-start px-3 py-1.5 bg-[#243B35] text-[#FFF9ED] rounded-lg text-xs font-semibold hover:bg-[#162521] transition-colors flex items-center gap-1.5 mt-1 shadow-xs"
+                  >
+                    <span>Enter Offline Session &amp; View All Pages</span>
+                    <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
+                  </button>
                 </div>
               )}
 
@@ -281,6 +230,26 @@ export const Login: React.FC = () => {
                       <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
                     </>
                   )}
+                </button>
+
+                <div className="relative flex py-1 items-center">
+                  <div className="flex-grow border-t border-[#d1dbcb]/60"></div>
+                  <span className="flex-shrink mx-3 text-[10px] uppercase font-mono text-[#4e5c56]/80 font-semibold">
+                    or preview frontend
+                  </span>
+                  <div className="flex-grow border-t border-[#d1dbcb]/60"></div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    enterEvaluationSession('ADMIN');
+                    navigate('/dashboard');
+                  }}
+                  className="w-full h-10 rounded bg-[#fff9ed] text-[#1a2b27] hover:bg-[#f6eed6] border border-[#d1dbcb] font-semibold text-xs tracking-wider flex items-center justify-center gap-2 shadow-xs transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[16px] text-[#2e5d4b]">visibility</span>
+                  <span>Explore &amp; View All Pages Directly</span>
                 </button>
               </form>
             </div>

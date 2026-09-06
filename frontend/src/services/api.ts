@@ -1,11 +1,25 @@
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:3001';
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:3000';
+
+export class ApiError extends Error {
+  status: number;
+  endpoint: string;
+  data: unknown;
+
+  constructor(message: string, status: number, endpoint: string, data?: unknown) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.endpoint = endpoint;
+    this.data = data;
+  }
+}
 
 interface RequestOptions extends RequestInit {
   data?: unknown;
 }
 
 export class ApiClient {
-  private baseURL: string;
+  public baseURL: string;
 
   constructor(baseURL: string = BASE_URL) {
     this.baseURL = baseURL;
@@ -36,26 +50,36 @@ export class ApiClient {
       config.body = options.data;
     }
 
+    let response: Response;
     try {
-      const response = await fetch(url, config);
-      if (response.status === 401) {
-        // Optional session expiration handling
-        console.warn('Unauthorized request - session may have expired.');
-      }
-      
-      const contentType = response.headers.get('content-type');
-      let data: T;
-      if (contentType && contentType.includes('application/json')) {
-        data = await response.json();
-      } else {
-        data = (await response.text()) as unknown as T;
-      }
-
-      return { data, status: response.status };
-    } catch (error) {
-      // Network or offline error: let caller handle or fallback
-      throw error;
+      response = await fetch(url, config);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Network request failed';
+      throw new ApiError(`Unable to connect to backend service at ${url} (${msg})`, 0, endpoint);
     }
+
+    const contentType = response.headers.get('content-type');
+    let data: T;
+    if (contentType && contentType.includes('application/json')) {
+      try {
+        data = await response.json();
+      } catch {
+        data = null as unknown as T;
+      }
+    } else {
+      data = (await response.text()) as unknown as T;
+    }
+
+    if (!response.ok) {
+      const errorMsg =
+        typeof data === 'object' && data !== null && 'message' in (data as Record<string, unknown>)
+          ? String((data as Record<string, unknown>).message)
+          : `HTTP ${response.status}: ${response.statusText || 'Request failed'}`;
+
+      throw new ApiError(errorMsg, response.status, endpoint, data);
+    }
+
+    return { data, status: response.status };
   }
 
   get<T>(endpoint: string, headers?: Record<string, string>) {

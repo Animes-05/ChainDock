@@ -9,6 +9,8 @@ import { useAuth } from '../hooks/useAuth';
 import { Case, Document as DocType, AuditEvent, Priority } from '../types';
 import { CaseForm } from '../components/cases/CaseForm';
 import { DocumentUpload } from '../components/documents/DocumentUpload';
+import { BackendUnavailable } from '../components/common/BackendUnavailable';
+import { ApiError } from '../services/api';
 
 export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -19,6 +21,7 @@ export const Dashboard: React.FC = () => {
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
   const [evidenceCount, setEvidenceCount] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
+  const [backendError, setBackendError] = useState<{ status: number; endpoint: string; message: string } | null>(null);
   const [isVerifying, setIsVerifying] = useState<boolean>(false);
   const [scanResult, setScanResult] = useState<string | null>(null);
 
@@ -29,19 +32,32 @@ export const Dashboard: React.FC = () => {
   const loadDashboardData = async () => {
     try {
       setLoading(true);
-      const [fetchedCases, fetchedDocs, fetchedEvidence, fetchedLogs] = await Promise.all([
-        casesService.getCases(),
-        documentsService.getDocuments(),
-        evidenceService.getEvidence(),
-        auditService.getAuditEvents(),
-      ]);
+      setBackendError(null);
+      const fetchedCases = await casesService.getCases();
+      let fetchedDocs: DocType[] = [];
+      let fetchedEvidence: any[] = [];
+      let fetchedLogs: AuditEvent[] = [];
+      try {
+        fetchedDocs = await documentsService.getDocuments();
+      } catch {}
+      try {
+        fetchedEvidence = await evidenceService.getEvidence();
+      } catch {}
+      try {
+        fetchedLogs = await auditService.getAuditEvents();
+      } catch {}
 
       setCases(fetchedCases);
       setDocuments(fetchedDocs);
       setEvidenceCount(fetchedEvidence.length);
       setAuditEvents(fetchedLogs);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Failed to load dashboard data:', err);
+      if (err instanceof ApiError) {
+        setBackendError({ status: err.status, endpoint: err.endpoint, message: err.message });
+      } else {
+        setBackendError({ status: 0, endpoint: '/cases', message: (err as Error).message });
+      }
     } finally {
       setLoading(false);
     }
@@ -101,6 +117,20 @@ export const Dashboard: React.FC = () => {
         return 'bg-gray-100 text-gray-800 border-gray-300';
     }
   };
+
+  if (backendError) {
+    return (
+      <AppShell>
+        <BackendUnavailable
+          moduleName="Dashboard Operations"
+          endpoint={backendError.endpoint}
+          status={backendError.status}
+          errorMessage={backendError.message}
+          onRetry={loadDashboardData}
+        />
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>
@@ -303,43 +333,51 @@ export const Dashboard: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#d1dbcb]/60 font-sans">
-                  {cases.map((c) => (
-                    <tr
-                      key={c.id}
-                      onClick={() => navigate(`/cases/${c.id}`)}
-                      className="hover:bg-[#f6eed6]/50 cursor-pointer transition-colors"
-                    >
-                      <td className="py-3 px-4 font-mono font-semibold text-[#2e5d4b]">
-                        {c.case_number}
-                      </td>
-                      <td className="py-3 px-4 font-medium text-[#1a2b27] max-w-xs truncate">
-                        {c.title}
-                      </td>
-                      <td className="py-3 px-4 text-[#4e5c56]">
-                        {c.lead_officer}
-                      </td>
-                      <td className="py-3 px-4">
-                        <span
-                          className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase font-mono border ${getPriorityBadgeClass(
-                            c.priority
-                          )}`}
-                        >
-                          {c.priority}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 font-mono text-[#4e5c56]">
-                        {c.document_count} files
-                      </td>
-                      <td className="py-3 px-4 font-mono text-[11px] text-emerald-800 font-semibold">
-                        {c.merkle_status}
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <span className="material-symbols-outlined text-[16px] text-[#4e5c56]">
-                          chevron_right
-                        </span>
+                  {cases.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-12 text-center text-[#4e5c56] text-xs">
+                        No active dockets registered in the backend repository.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    cases.map((c) => (
+                      <tr
+                        key={c.id}
+                        onClick={() => navigate(`/cases/${c.id}`)}
+                        className="hover:bg-[#f6eed6]/50 cursor-pointer transition-colors"
+                      >
+                        <td className="py-3 px-4 font-mono font-semibold text-[#2e5d4b]">
+                          {c.case_number}
+                        </td>
+                        <td className="py-3 px-4 font-medium text-[#1a2b27] max-w-xs truncate">
+                          {c.title}
+                        </td>
+                        <td className="py-3 px-4 text-[#4e5c56]">
+                          {c.lead_officer}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span
+                            className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase font-mono border ${getPriorityBadgeClass(
+                              c.priority
+                            )}`}
+                          >
+                            {c.priority}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 font-mono text-[#4e5c56]">
+                          {c.document_count} files
+                        </td>
+                        <td className="py-3 px-4 font-mono text-[11px] text-emerald-800 font-semibold">
+                          {c.merkle_status}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <span className="material-symbols-outlined text-[16px] text-[#4e5c56]">
+                            chevron_right
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -391,7 +429,12 @@ export const Dashboard: React.FC = () => {
               </div>
 
               <div className="divide-y divide-[#d1dbcb]/50">
-                {auditEvents.slice(0, 5).map((evt) => (
+                {auditEvents.length === 0 ? (
+                  <div className="p-6 text-center text-[#4e5c56] text-xs">
+                    No ledger entries recorded yet.
+                  </div>
+                ) : (
+                  auditEvents.slice(0, 5).map((evt) => (
                   <div key={evt.id} className="p-3 hover:bg-[#fff9ed] transition-colors flex flex-col gap-1">
                     <div className="flex items-center justify-between text-[11px] font-mono">
                       <span className="font-bold text-[#2e5d4b]">BLOCK #{evt.block_number}</span>
@@ -416,8 +459,9 @@ export const Dashboard: React.FC = () => {
                       {evt.actor} · {evt.entry_hash.slice(0, 20)}...
                     </div>
                   </div>
-                ))}
-              </div>
+                ))
+              )}
+            </div>
             </div>
           </div>
         </div>
