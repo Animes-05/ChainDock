@@ -4,10 +4,16 @@ import { computeSHA256 } from '../utils/validation';
 
 export function normalizeDocument(d: any, fallback?: Partial<Document>): Document {
   const isTampered = Boolean(d?.is_tampered ?? d?.isTampered ?? fallback?.is_tampered ?? false);
-  const sha256Val = String(d?.sha256 || d?.hash || fallback?.sha256 || '');
-  const origSha256 = String(d?.original_sha256 || d?.originalSha256 || fallback?.original_sha256 || sha256Val);
+
+  // Backend (documents.rs DocumentResponse) returns `file_hash`, not `sha256`/`hash`.
+  const sha256Val = String(d?.file_hash ?? d?.fileHash ?? fallback?.sha256 ?? '');
+  const origSha256 = String(d?.original_file_hash ?? d?.originalFileHash ?? fallback?.original_sha256 ?? sha256Val);
+
   const created = String(d?.created_at || d?.createdAt || fallback?.created_at || new Date().toISOString());
   const uploadedBy = String(d?.uploaded_by || d?.uploadedBy || fallback?.uploaded_by || 'Investigating Officer');
+
+  // Backend (documents.rs DocumentResponse) returns `doc_type`, not `document_type`.
+  const documentType = String(d?.doc_type ?? d?.docType ?? fallback?.document_type ?? 'EVIDENTIARY_REPORT');
 
   let versionsList = Array.isArray(d?.versions) ? d.versions : fallback?.versions;
   if (!Array.isArray(versionsList) || versionsList.length === 0) {
@@ -35,7 +41,7 @@ export function normalizeDocument(d: any, fallback?: Partial<Document>): Documen
     case_id: String(d?.case_id || d?.caseId || fallback?.case_id || ''),
     case_number: String(d?.case_number || d?.caseNumber || fallback?.case_number || 'CASE-2026'),
     title: String(d?.title || fallback?.title || 'Untitled Document'),
-    document_type: String(d?.document_type || d?.documentType || fallback?.document_type || 'EVIDENTIARY_REPORT'),
+    document_type: documentType,
     description: String(d?.description || fallback?.description || ''),
     version: Number(d?.version || fallback?.version || 1),
     sha256: sha256Val,
@@ -98,6 +104,12 @@ export async function uploadDocument(
     classification?: string;
   }
 ): Promise<Document> {
+  // Note: the backend (documents.rs upload_document) computes file_hash itself
+  // server-side from the raw bytes and ignores any client-supplied hash field.
+  // We still compute this locally for the "live checksum" UI preview in
+  // DocumentUpload.tsx, but we no longer send it as `sha256`/expect the backend
+  // to use it — that field name doesn't exist in the multipart contract either
+  // (see documents.rs: fields are title, doc_type, description, file).
   let fileHash = '';
   try {
     const buffer = await file.arrayBuffer();
@@ -108,18 +120,9 @@ export async function uploadDocument(
 
   const formData = new FormData();
   formData.append('file', file);
-  formData.append('case_id', caseId);
-  formData.append('caseId', caseId);
   formData.append('title', data.title);
-  formData.append('document_type', data.documentType);
-  formData.append('documentType', data.documentType);
+  formData.append('doc_type', data.documentType);
   formData.append('description', data.description);
-  formData.append('uploaded_by', data.uploadedBy);
-  formData.append('uploadedBy', data.uploadedBy);
-  formData.append('sha256', fileHash);
-  if (data.classification) {
-    formData.append('classification', data.classification);
-  }
 
   let res;
   try {
