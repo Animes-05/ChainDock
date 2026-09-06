@@ -56,12 +56,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const enterEvaluationSession = (targetRole: Role = 'ADMIN') => {
     sessionStorage.removeItem('chaindock_signed_out');
+    const roleUpper = String(targetRole).toUpperCase() as Role;
     const evalUser: User = {
       ...DEFAULT_OFFICER,
-      role: targetRole,
+      name: roleUpper === 'ADMIN' ? 'Chief Registrar (Admin)' : 'Inspector Priya Sharma',
+      email: roleUpper === 'ADMIN' ? 'admin@police.gov.in' : 'officer@police.gov.in',
+      role: roleUpper,
+      badgeNumber: roleUpper === 'ADMIN' ? 'ADM-01' : 'POL-8821',
+      badge_number: roleUpper === 'ADMIN' ? 'ADM-01' : 'POL-8821',
     };
     sessionStorage.setItem('chaindock_token', 'session-token-active');
     sessionStorage.setItem('chaindock_user', JSON.stringify(evalUser));
+    localStorage.setItem('chaindock_token', 'session-token-active');
+    localStorage.setItem('chaindock_user', JSON.stringify(evalUser));
     setUser(evalUser);
   };
 

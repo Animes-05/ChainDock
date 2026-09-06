@@ -2,7 +2,7 @@ import { Role } from '../types';
 
 export const PERMISSIONS = {
   CAN_VIEW_CASES: ['INVESTIGATOR', 'SUPERVISOR', 'ADMIN'] as Role[],
-  CAN_CREATE_CASE: ['INVESTIGATOR', 'SUPERVISOR', 'ADMIN'] as Role[],
+  CAN_CREATE_CASE: ['SUPERVISOR', 'ADMIN'] as Role[],
   CAN_VIEW_DOCUMENTS: ['INVESTIGATOR', 'SUPERVISOR', 'ADMIN'] as Role[],
   CAN_UPLOAD_DOCUMENT: ['INVESTIGATOR', 'SUPERVISOR', 'ADMIN'] as Role[],
   CAN_DOWNLOAD_DOCUMENT: ['INVESTIGATOR', 'SUPERVISOR', 'ADMIN'] as Role[],
@@ -17,9 +17,10 @@ export const PERMISSIONS = {
   CAN_VIEW_SECURITY_CENTER: ['SUPERVISOR', 'ADMIN'] as Role[],
 };
 
-export function hasPermission(role: Role | undefined, allowedRoles: Role[]): boolean {
+export function hasPermission(role: Role | string | undefined, allowedRoles: Role[]): boolean {
   if (!role) return false;
-  return allowedRoles.includes(role);
+  const upper = String(role).toUpperCase();
+  return allowedRoles.some((r) => r.toUpperCase() === upper);
 }
 
 export function canFinalize(role?: Role): boolean {

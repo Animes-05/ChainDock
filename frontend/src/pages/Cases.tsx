@@ -52,17 +52,19 @@ export const Cases: React.FC = () => {
     jurisdiction: string;
     lead_officer: string;
   }) => {
-    await casesService.createCase(data);
+    const created = await casesService.createCase(data);
+    setCases((prev) => [created, ...prev.filter((c) => c.id !== created.id)]);
     setIsCreateModalOpen(false);
-    await fetchCases();
+    fetchCases();
   };
 
   const filteredCases = cases.filter((c) => {
+    const q = searchQuery.toLowerCase();
     const matchesSearch =
-      c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.case_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.lead_officer.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.jurisdiction.toLowerCase().includes(searchQuery.toLowerCase());
+      (c.title || '').toLowerCase().includes(q) ||
+      (c.case_number || '').toLowerCase().includes(q) ||
+      (c.lead_officer || '').toLowerCase().includes(q) ||
+      (c.jurisdiction || '').toLowerCase().includes(q);
 
     const matchesStatus = statusFilter === 'ALL' || c.status === statusFilter;
     const matchesPriority = priorityFilter === 'ALL' || c.priority === priorityFilter;

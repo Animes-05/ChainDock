@@ -31,23 +31,27 @@ export class ApiClient {
   }
 
   async request<T>(endpoint: string, options: RequestOptions = {}): Promise<{ data: T; status: number }> {
-    const url = `${this.baseURL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+    const cleanBase = this.baseURL.replace(/\/+$/, '');
+    const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    const url = `${cleanBase}${cleanEndpoint}`;
+
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...this.getAuthHeader(),
       ...(options.headers as Record<string, string>),
     };
 
+    const { data: requestData, headers: _customHeaders, ...fetchOptions } = options;
     const config: RequestInit = {
-      ...options,
+      ...fetchOptions,
       headers,
     };
 
-    if (options.data && !(options.data instanceof FormData)) {
-      config.body = JSON.stringify(options.data);
-    } else if (options.data instanceof FormData) {
+    if (requestData !== undefined && !(requestData instanceof FormData)) {
+      config.body = JSON.stringify(requestData);
+    } else if (requestData instanceof FormData) {
       delete headers['Content-Type'];
-      config.body = options.data;
+      config.body = requestData;
     }
 
     let response: Response;
@@ -71,9 +75,14 @@ export class ApiClient {
     }
 
     if (!response.ok) {
+      const errorObj = typeof data === 'object' && data !== null ? (data as Record<string, unknown>) : null;
       const errorMsg =
-        typeof data === 'object' && data !== null && 'message' in (data as Record<string, unknown>)
-          ? String((data as Record<string, unknown>).message)
+        errorObj?.error
+          ? String(errorObj.error)
+          : errorObj?.message
+          ? String(errorObj.message)
+          : errorObj?.detail
+          ? String(errorObj.detail)
           : `HTTP ${response.status}: ${response.statusText || 'Request failed'}`;
 
       throw new ApiError(errorMsg, response.status, endpoint, data);
