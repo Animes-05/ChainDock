@@ -1,6 +1,7 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from './ProtectedRoutes';
+import { RoleRoute } from './RoleRoute';
 import { Login } from '../pages/auth/Login';
 import { Dashboard } from '../pages/Dashboard';
 import { Cases } from '../pages/Cases';
@@ -10,7 +11,8 @@ import { CaseDetails } from '../pages/CaseDetails';
 // import { Evidence } from '../pages/Evidence';
 // import { AuditLog } from '../pages/AuditLog';
 // import { Security } from '../pages/Security';
-// import { Users } from '../pages/Users';
+import { Users } from '../pages/Users';
+import { Unauthorized } from '../pages/errors/Unauthorized';
 
 export const AppRoutes: React.FC = () => {
   return (
@@ -27,6 +29,7 @@ export const AppRoutes: React.FC = () => {
           </ProtectedRoute>
         }
       />
+
       <Route
         path="/cases"
         element={
@@ -35,6 +38,7 @@ export const AppRoutes: React.FC = () => {
           </ProtectedRoute>
         }
       />
+
       <Route
         path="/cases/:id"
         element={
@@ -43,6 +47,16 @@ export const AppRoutes: React.FC = () => {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/users"
+        element={
+          <RoleRoute allowedRoles={['ADMIN']}>
+            <Users />
+          </RoleRoute>
+        }
+      />
+
+      <Route path="/unauthorized" element={<Unauthorized />} />
 
       {/* Redirects */}
       <Route path="/" element={<Navigate to="/dashboard" replace />} />

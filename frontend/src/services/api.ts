@@ -55,7 +55,7 @@ export class ApiClient {
       response = await fetch(url, config);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Network request failed';
-      throw new ApiError(`Unable to connect to backend service at ${url} (${msg})`, 0, endpoint);
+      throw new ApiError(`Unable to connect to backend service (${msg})`, 0, endpoint);
     }
 
     const contentType = response.headers.get('content-type');

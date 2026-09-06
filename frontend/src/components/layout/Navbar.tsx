@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { OfficerProfileModal } from '../common/OfficerProfileModal';
 
 interface NavbarProps {
   onMenuToggle?: () => void;
@@ -8,6 +9,7 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({ onMenuToggle }) => {
   const { user, role, logout } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   return (
     <header className="fixed top-0 left-0 lg:left-64 right-0 h-16 bg-[#fffdf9] border-b border-[#d1dbcb] z-40 flex items-center justify-between px-4 sm:px-6 lg:px-8 gap-3 select-none">
@@ -104,6 +106,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onMenuToggle }) => {
               <button
                 onClick={() => {
                   setDropdownOpen(false);
+                  setIsProfileModalOpen(true);
+                }}
+                className="w-full text-left px-2.5 py-2 rounded-lg text-xs font-medium text-[#1a2b27] hover:bg-[#f6eed6] flex items-center gap-2 transition-colors"
+              >
+                <span className="material-symbols-outlined text-[16px] text-[#2e5d4b]">badge</span>
+                <span>View Officer Credentials</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setDropdownOpen(false);
                   logout();
                 }}
                 className="w-full text-left px-2.5 py-2 rounded-lg text-xs font-medium text-red-800 hover:bg-red-50 flex items-center gap-2 transition-colors"
@@ -115,6 +128,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onMenuToggle }) => {
           )}
         </div>
       </div>
+
+      <OfficerProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+      />
     </header>
   );
 };
