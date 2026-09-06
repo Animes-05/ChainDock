@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { OfficerProfileModal } from '../common/OfficerProfileModal';
+import { canManageUsers } from '../../utils/permissions';
 
 interface NavbarProps {
   onMenuToggle?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ onMenuToggle }) => {
+  const navigate = useNavigate();
   const { user, role, logout } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -113,6 +116,19 @@ export const Navbar: React.FC<NavbarProps> = ({ onMenuToggle }) => {
                 <span className="material-symbols-outlined text-[16px] text-[#2e5d4b]">badge</span>
                 <span>View Officer Credentials</span>
               </button>
+
+              {canManageUsers(role) && (
+                <button
+                  onClick={() => {
+                    setDropdownOpen(false);
+                    navigate('/users');
+                  }}
+                  className="w-full text-left px-2.5 py-2 rounded-lg text-xs font-medium text-[#1a2b27] hover:bg-[#f6eed6] flex items-center gap-2 transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[16px] text-[#2e5d4b]">manage_accounts</span>
+                  <span>User Management (Admin)</span>
+                </button>
+              )}
 
               <button
                 onClick={() => {

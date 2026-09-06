@@ -1,14 +1,22 @@
 import { api } from './api';
-import { User, CreateUserPayload, UpdateUserPayload, KeyEnclaveDetails } from '../types';
+import { User, Role, CreateUserPayload, UpdateUserPayload, KeyEnclaveDetails } from '../types';
 
 function normalizeUser(u: any): User {
+  const roleUpper = String(u.role || 'INVESTIGATOR').toUpperCase() as Role;
   return {
     id: String(u.id || ''),
     email: String(u.email || ''),
-    name: String(u.name || ''),
-    role: u.role || 'INVESTIGATOR',
-    badgeNumber: u.badgeNumber || u.badge_number || 'N/A',
-    badge_number: u.badge_number || u.badgeNumber || 'N/A',
+    name: String(
+      u.name ||
+        (roleUpper === 'ADMIN'
+          ? 'Chief Registrar (Admin)'
+          : roleUpper === 'SUPERVISOR'
+          ? 'Supervising Officer'
+          : 'Officer In-Charge')
+    ),
+    role: roleUpper,
+    badgeNumber: u.badgeNumber || u.badge_number || (roleUpper === 'ADMIN' ? 'ADM-01' : 'POL-2026'),
+    badge_number: u.badge_number || u.badgeNumber || (roleUpper === 'ADMIN' ? 'ADM-01' : 'POL-2026'),
     department: u.department || u.jurisdiction_node || u.jurisdictionNode || 'Investigation Squad',
     jurisdictionNode: u.jurisdictionNode || u.jurisdiction_node || 'Jurisdiction Alpha',
     jurisdiction_node: u.jurisdiction_node || u.jurisdictionNode || 'Jurisdiction Alpha',
@@ -42,7 +50,7 @@ export async function createUser(payload: CreateUserPayload): Promise<User> {
   const body = {
     name: payload.name,
     email: payload.email,
-    role: payload.role,
+    role: String(payload.role || 'investigator').toLowerCase(),
     badge_number: payload.badge_number,
     department: payload.department,
     jurisdiction_node: payload.jurisdiction_node,

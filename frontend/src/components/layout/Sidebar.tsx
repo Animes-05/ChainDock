@@ -16,7 +16,7 @@ export const Sidebar: React.FC = () => {
   ];
 
   if (canManageUsers(role)) {
-    navItems.push({ to: '/users', label: 'Personnel & Access', icon: 'manage_accounts', badge: 'ADMIN' });
+    navItems.push({ to: '/users', label: 'Users', icon: 'manage_accounts', badge: 'ADMIN' });
   }
 
   return (

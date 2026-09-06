@@ -75,9 +75,10 @@ export const Dashboard: React.FC = () => {
     jurisdiction: string;
     lead_officer: string;
   }) => {
-    await casesService.createCase(data);
+    const created = await casesService.createCase(data);
+    setCases((prev) => [created, ...prev.filter((c) => c.id !== created.id)]);
     setIsCaseModalOpen(false);
-    await loadDashboardData();
+    loadDashboardData();
   };
 
   const handleUploadComplete = async (

@@ -28,7 +28,10 @@ export const RoleRoute: React.FC<RoleRouteProps> = ({ children, allowedRoles }) 
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (!role || !allowedRoles.includes(role)) {
+  const userRoleUpper = String(role || '').toUpperCase();
+  const isAllowed = allowedRoles.some((r) => r.toUpperCase() === userRoleUpper);
+
+  if (!role || !isAllowed) {
     return <Unauthorized />;
   }
 

@@ -26,22 +26,43 @@ export const CaseForm: React.FC<CaseFormProps> = ({ isOpen, onClose, onSubmit })
   const [jurisdiction, setJurisdiction] = useState('Western Range Sanctuary');
   const [leadOfficer, setLeadOfficer] = useState('Officer S. Jenkins');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const resetForm = () => {
+    setTitle('');
+    setDescription('');
+    setCaseNumber(`CD-2026-${Math.floor(100 + Math.random() * 900)}`);
+    setError(null);
+  };
+
+  const handleClose = () => {
+    resetForm();
+    onClose();
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!title.trim() || !caseNumber.trim()) return;
 
     setLoading(true);
+    setError(null);
     try {
       await onSubmit({
-        title,
-        case_number: caseNumber,
-        description,
+        title: title.trim(),
+        case_number: caseNumber.trim(),
+        description: description.trim(),
         priority,
-        jurisdiction,
-        lead_officer: leadOfficer,
+        jurisdiction: jurisdiction.trim(),
+        lead_officer: leadOfficer.trim(),
       });
+      resetForm();
       onClose();
+    } catch (err: any) {
+      console.error('Failed to commit case to backend ledger:', err);
+      const msg =
+        err?.message ||
+        'Failed to commit case to backend ledger. Ensure backend is running and you have Supervisor/Admin authorization.';
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -50,19 +71,31 @@ export const CaseForm: React.FC<CaseFormProps> = ({ isOpen, onClose, onSubmit })
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleClose}
       title="Create New Case Docket"
       subtitle="Register an official evidentiary case container on the sovereign ledger"
       icon={<FolderPlus size={20} />}
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        {error && (
+          <div className="p-3.5 bg-red-50 text-red-900 rounded-lg text-xs font-medium border border-red-300 flex items-start gap-2.5 animate-fade-in">
+            <span className="material-symbols-outlined text-[18px] text-red-700 shrink-0 mt-0.5">
+              error
+            </span>
+            <div className="flex-1">
+              <span className="font-semibold block mb-0.5">Case Registration Error:</span>
+              <span>{error}</span>
+            </div>
+          </div>
+        )}
+
         <Input
           label="Case Reference Number"
           value={caseNumber}
           onChange={(e) => setCaseNumber(e.target.value)}
           required
           placeholder="e.g. CD-2026-104"
-          helperText="Unique sovereign jurisdiction identifier"
+          helperText="Unique sovereign jurisdiction identifier (committed to backend DB)"
         />
 
         <Input
@@ -124,7 +157,7 @@ export const CaseForm: React.FC<CaseFormProps> = ({ isOpen, onClose, onSubmit })
         />
 
         <div className="flex items-center justify-end gap-3 pt-3 border-t border-moss-border/40">
-          <Button variant="secondary" type="button" onClick={onClose} disabled={loading}>
+          <Button variant="secondary" type="button" onClick={handleClose} disabled={loading}>
             Cancel
           </Button>
           <Button variant="primary" type="submit" loading={loading}>

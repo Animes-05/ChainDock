@@ -1,17 +1,33 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { Role } from '../../types';
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
   const { login, enterEvaluationSession } = useAuth();
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [activeTab, setActiveTab] = useState<'ADMIN' | 'USER'>('ADMIN');
+  const [email, setEmail] = useState('admin@police.gov.in');
+  const [password, setPassword] = useState('Admin@123456');
   const [jurisdiction, setJurisdiction] = useState('Node Alpha');
-  const [sessionToken, setSessionToken] = useState('');
+  const [sessionToken, setSessionToken] = useState('849201');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const handleTabSwitch = (mode: 'ADMIN' | 'USER') => {
+    setActiveTab(mode);
+    setError('');
+    if (mode === 'ADMIN') {
+      setEmail('admin@police.gov.in');
+      setPassword('Admin@123456');
+      setSessionToken('849201');
+    } else {
+      setEmail('officer@police.gov.in');
+      setPassword('Officer@123456');
+      setSessionToken('384910');
+    }
+  };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,14 +38,19 @@ export const Login: React.FC = () => {
       await login(email, password);
       navigate('/dashboard');
     } catch (err: unknown) {
-      setError(
+      const msg =
         err instanceof Error
           ? err.message
-          : 'Unable to authenticate with backend at http://127.0.0.1:3000. Ensure server is running.'
-      );
+          : 'Unable to authenticate with backend at http://127.0.0.1:3000. Ensure server is running.';
+      setError(msg);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleQuickSession = (targetRole: Role) => {
+    enterEvaluationSession(targetRole);
+    navigate('/dashboard');
   };
 
   return (
@@ -111,22 +132,60 @@ export const Login: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            <div className="p-3 bg-black/30 rounded-xl border border-white/10 font-mono text-[11px] text-emerald-300/80 flex items-center justify-between">
+              <span>ACTIVE CADRE:</span>
+              <span className="font-bold text-white bg-emerald-900/60 px-2 py-0.5 rounded border border-emerald-500/30">
+                {activeTab === 'ADMIN' ? 'ADMINISTRATOR (TIER 3)' : 'USER / INVESTIGATOR (TIER 1)'}
+              </span>
+            </div>
           </section>
 
           {/* Right Panel: Interactive Authentication Form */}
           <main className="lg:col-span-7 bg-[#fffdf9] p-6 sm:p-8 flex flex-col justify-between">
             <div className="flex flex-col gap-5">
               <div className="flex flex-col gap-1 border-b border-[#d1dbcb]/60 pb-3">
-                <div className="flex items-center gap-2 text-xs font-bold text-[#2e5d4b] uppercase tracking-wider">
-                  <span className="material-symbols-outlined text-[16px]">lock</span>
-                  Jurisdictional Gateway Authentication
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold text-[#2e5d4b] uppercase tracking-wider">
+                    <span className="material-symbols-outlined text-[16px]">lock</span>
+                    Jurisdictional Gateway Authentication
+                  </div>
                 </div>
                 <h2 className="text-xl sm:text-2xl font-bold text-[#1a2b27] tracking-tight">
                   Officer Identity Verification
                 </h2>
                 <p className="text-xs text-[#4e5c56]">
-                  Sign in with registered police / judicial email and cryptographic authentication token.
+                  Select your clearance portal, sign in with registered credentials, or use 1-click evaluator preview.
                 </p>
+              </div>
+
+              {/* Login Mode Selector Tabs: Admin Login vs User Login */}
+              <div className="flex items-center bg-[#f6eed6] p-1 rounded-xl border border-[#d1dbcb]">
+                <button
+                  type="button"
+                  onClick={() => handleTabSwitch('ADMIN')}
+                  className={`flex-1 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
+                    activeTab === 'ADMIN'
+                      ? 'bg-[#0e1c19] text-[#fffdf9] shadow-sm'
+                      : 'text-[#4e5c56] hover:text-[#1a2b27]'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[16px]">admin_panel_settings</span>
+                  <span>Admin Login (Tier 3)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleTabSwitch('USER')}
+                  className={`flex-1 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
+                    activeTab === 'USER'
+                      ? 'bg-[#0e1c19] text-[#fffdf9] shadow-sm'
+                      : 'text-[#4e5c56] hover:text-[#1a2b27]'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[16px]">person</span>
+                  <span>User Login (Investigator)</span>
+                </button>
               </div>
 
               {error && (
@@ -135,17 +194,24 @@ export const Login: React.FC = () => {
                     <span className="material-symbols-outlined text-[18px] text-red-700 shrink-0">error</span>
                     <span>{error}</span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      enterEvaluationSession('ADMIN');
-                      navigate('/dashboard');
-                    }}
-                    className="self-start px-3 py-1.5 bg-[#243B35] text-[#FFF9ED] rounded-lg text-xs font-semibold hover:bg-[#162521] transition-colors flex items-center gap-1.5 mt-1 shadow-xs"
-                  >
-                    <span>Enter Offline Session &amp; View All Pages</span>
-                    <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
-                  </button>
+                  <div className="flex items-center gap-2 pt-1 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => handleQuickSession('ADMIN')}
+                      className="px-3 py-1.5 bg-[#243B35] text-[#FFF9ED] rounded-lg text-xs font-semibold hover:bg-[#162521] transition-colors flex items-center gap-1.5 shadow-xs"
+                    >
+                      <span>Explore as Admin</span>
+                      <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleQuickSession('INVESTIGATOR')}
+                      className="px-3 py-1.5 bg-[#fffdf9] border border-[#d1dbcb] text-[#1a2b27] rounded-lg text-xs font-semibold hover:bg-[#f6eed6] transition-colors flex items-center gap-1.5 shadow-xs"
+                    >
+                      <span>Explore as User</span>
+                      <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -166,12 +232,17 @@ export const Login: React.FC = () => {
                 </div>
 
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-[#1a2b27] uppercase tracking-wider">
-                    Officer Email / Government ID
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-[#1a2b27] uppercase tracking-wider">
+                      {activeTab === 'ADMIN' ? 'Administrator Email' : 'Officer / User Email'}
+                    </label>
+                    <span className="text-[10px] text-[#2e5d4b] font-mono font-medium">
+                      {activeTab === 'ADMIN' ? 'Cadre: ADMIN' : 'Cadre: INVESTIGATOR'}
+                    </span>
+                  </div>
                   <div className="relative">
                     <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#4e5c56] text-[18px]">
-                      badge
+                      {activeTab === 'ADMIN' ? 'admin_panel_settings' : 'badge'}
                     </span>
                     <input
                       type="email"
@@ -226,7 +297,7 @@ export const Login: React.FC = () => {
                     <span className="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
                   ) : (
                     <>
-                      <span>Initialize Cryptographic Session</span>
+                      <span>Sign In as {activeTab === 'ADMIN' ? 'Administrator' : 'User (Officer)'}</span>
                       <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
                     </>
                   )}
@@ -235,22 +306,31 @@ export const Login: React.FC = () => {
                 <div className="relative flex py-1 items-center">
                   <div className="flex-grow border-t border-[#d1dbcb]/60"></div>
                   <span className="flex-shrink mx-3 text-[10px] uppercase font-mono text-[#4e5c56]/80 font-semibold">
-                    or preview frontend
+                    or quick 1-click evaluator preview
                   </span>
                   <div className="flex-grow border-t border-[#d1dbcb]/60"></div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    enterEvaluationSession('ADMIN');
-                    navigate('/dashboard');
-                  }}
-                  className="w-full h-10 rounded bg-[#fff9ed] text-[#1a2b27] hover:bg-[#f6eed6] border border-[#d1dbcb] font-semibold text-xs tracking-wider flex items-center justify-center gap-2 shadow-xs transition-colors"
-                >
-                  <span className="material-symbols-outlined text-[16px] text-[#2e5d4b]">visibility</span>
-                  <span>Explore &amp; View All Pages Directly</span>
-                </button>
+                {/* Direct 1-Click Role Switcher Options */}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleQuickSession('ADMIN')}
+                    className="h-10 rounded bg-[#fff9ed] text-[#1a2b27] hover:bg-[#f6eed6] border border-[#d1dbcb] font-semibold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-[16px] text-[#2e5d4b]">admin_panel_settings</span>
+                    <span>Admin Option</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleQuickSession('INVESTIGATOR')}
+                    className="h-10 rounded bg-[#fff9ed] text-[#1a2b27] hover:bg-[#f6eed6] border border-[#d1dbcb] font-semibold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-[16px] text-[#2e5d4b]">person</span>
+                    <span>User Option</span>
+                  </button>
+                </div>
               </form>
             </div>
 
