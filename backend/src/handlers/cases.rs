@@ -17,7 +17,8 @@ use crate::{
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/cases", post(create_case).get(list_cases))
-        .route("/cases/{id}/assign", post(assign_user))
+        .route("/cases/:id", get(get_case))
+        .route("/cases/:id/assign", post(assign_user))
 }
 
 #[derive(Deserialize)]
@@ -134,8 +135,47 @@ async fn list_cases(
     Ok(Json(rows))
 }
 
+/// Single-case fetch, used by the frontend's case detail view (GET /cases/:id).
+/// Access rule mirrors list_cases: supervisor/admin see any case; investigators
+/// must have a row in case_assignments for this case, otherwise 403. A case_id
+/// that doesn't exist at all is a 404, checked before the access check so we
+/// don't leak "this case exists but you can't see it" vs "doesn't exist" — actually
+/// we do distinguish them here (404 first) since that's simpler and the case_number/
+/// title aren't sensitive; access-controlled data is scoped at the document level.
+async fn get_case(
+    State(state): State<AppState>,
+    user: AuthenticatedUser,
+    Path(case_id): Path<Uuid>,
+) -> Result<Json<CaseResponse>, AppError> {
+    let row = sqlx::query!(
+        r#"SELECT id, title, case_number, created_by FROM cases WHERE id = $1"#,
+        case_id
+    )
+    .fetch_optional(&state.db)
+    .await?
+    .ok_or(AppError::NotFound)?;
 
+    if !matches!(user.role, Role::Supervisor | Role::Admin) {
+        let assigned = sqlx::query_scalar!(
+            "SELECT 1 FROM case_assignments WHERE case_id = $1 AND user_id = $2",
+            case_id,
+            user.user_id
+        )
+        .fetch_optional(&state.db)
+        .await?;
 
+        if assigned.is_none() {
+            return Err(AppError::Forbidden);
+        }
+    }
+
+    Ok(Json(CaseResponse {
+        id: row.id,
+        title: row.title,
+        case_number: row.case_number,
+        created_by: row.created_by,
+    }))
+}
 
 #[derive(Deserialize)]
 struct AssignRequest {

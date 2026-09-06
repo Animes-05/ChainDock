@@ -19,7 +19,7 @@ use crate::{
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/audit/verify-chain", get(verify_chain))
-        .route("/cases/{id}/audit-trail", get(audit_trail))
+        .route("/cases/:id/audit-trail", get(audit_trail))
 }
 
 /// Genesis hash for the first row in the chain — 64 zero chars, same length as a

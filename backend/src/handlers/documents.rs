@@ -17,9 +17,9 @@ const DOCUMENTS_DIR: &str = "data/documents";
 
 pub fn router() -> Router<AppState> {
     Router::new()
-        .route("/cases/{case_id}/documents", post(upload_document).get(list_documents))
-        .route("/documents/{id}", get(get_document))
-        .route("/documents/{id}/download", get(download_document))
+        .route("/cases/:case_id/documents", post(upload_document).get(list_documents))
+        .route("/documents/:id", get(get_document))
+        .route("/documents/:id/download", get(download_document))
 }
 
 /// Shared access check: supervisor/admin see every case; investigators only cases
