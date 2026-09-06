@@ -1,6 +1,7 @@
 import { api } from './api';
 import { Document } from '../types';
 import { computeSHA256 } from '../utils/validation';
+import { casesService } from './cases';
 
 export function normalizeDocument(d: any, fallback?: Partial<Document>): Document {
   const isTampered = Boolean(d?.is_tampered ?? d?.isTampered ?? fallback?.is_tampered ?? false);
@@ -63,9 +64,10 @@ export function normalizeDocument(d: any, fallback?: Partial<Document>): Documen
   };
 }
 
-export async function getDocuments(caseId?: string): Promise<Document[]> {
-  const url = caseId ? `/cases/${caseId}/documents` : '/documents';
-  const res = await api.get<Document[] | { documents: Document[] } | { data: Document[] } | { items: Document[] } | { results: Document[] }>(url);
+async function getDocumentsForCase(caseId: string, caseNumber?: string): Promise<Document[]> {
+  const res = await api.get<Document[] | { documents: Document[] } | { data: Document[] } | { items: Document[] } | { results: Document[] }>(
+    `/cases/${caseId}/documents`
+  );
   let rawList: any[] = [];
   if (Array.isArray(res.data)) {
     rawList = res.data;
@@ -81,7 +83,31 @@ export async function getDocuments(caseId?: string): Promise<Document[]> {
       rawList = d.results;
     }
   }
-  return rawList.map((doc) => normalizeDocument(doc));
+  return rawList.map((doc) => normalizeDocument(doc, { case_id: caseId, case_number: caseNumber }));
+}
+
+/**
+ * The backend has no flat "all documents" route by design (DESIGN.md scopes
+ * documents per-case through case_assignments access control). When no
+ * caseId is given, we fan out across every case the current user can already
+ * see via GET /cases and flatten the results, instead of calling a route
+ * that doesn't exist.
+ */
+export async function getDocuments(caseId?: string): Promise<Document[]> {
+  if (caseId) {
+    return getDocumentsForCase(caseId);
+  }
+
+  const cases = await casesService.getCases();
+  const perCase = await Promise.all(
+    cases.map((c) =>
+      getDocumentsForCase(c.id, c.case_number).catch((err) => {
+        console.warn(`Failed to load documents for case ${c.id}:`, err);
+        return [] as Document[];
+      })
+    )
+  );
+  return perCase.flat();
 }
 
 export async function getDocumentById(id: string): Promise<Document | null> {
