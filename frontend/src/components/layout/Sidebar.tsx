@@ -6,7 +6,7 @@ import { canManageUsers } from '../../utils/permissions';
 export const Sidebar: React.FC = () => {
   const { role, logout } = useAuth();
 
-  const navItems = [
+  const navItems: { to: string; label: string; icon: string; badge?: string }[] = [
     { to: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
     { to: '/cases', label: 'Cases & Dossiers', icon: 'folder_open' },
     { to: '/documents', label: 'Documents & FIRs', icon: 'description' },
@@ -16,7 +16,7 @@ export const Sidebar: React.FC = () => {
   ];
 
   if (canManageUsers(role)) {
-    navItems.push({ to: '/users', label: 'Personnel & Access', icon: 'manage_accounts' });
+    navItems.push({ to: '/users', label: 'Personnel & Access', icon: 'manage_accounts', badge: 'ADMIN' });
   }
 
   return (
@@ -55,15 +55,22 @@ export const Sidebar: React.FC = () => {
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded text-xs tracking-wide transition-colors ${
+                `flex items-center justify-between px-3 py-2.5 rounded text-xs tracking-wide transition-colors ${
                   isActive
                     ? 'bg-[#243b35] text-[#fffdf9] font-semibold shadow-sm'
                     : 'text-[#d1dbcb]/80 hover:bg-[#243b35]/50 hover:text-[#fffdf9]'
                 }`
               }
             >
-              <span className="material-symbols-outlined text-[18px] shrink-0">{item.icon}</span>
-              <span className="truncate">{item.label}</span>
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="material-symbols-outlined text-[18px] shrink-0">{item.icon}</span>
+                <span className="truncate">{item.label}</span>
+              </div>
+              {item.badge && (
+                <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  {item.badge}
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>

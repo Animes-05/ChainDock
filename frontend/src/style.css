@@ -3,7 +3,9 @@
 @tailwind utilities;
 
 @layer base {
-  html, body {
+
+  html,
+  body {
     margin: 0;
     padding: 0;
     background-color: #fff9ed;
@@ -29,18 +31,21 @@
   }
 }
 
-/* Custom scrollbars */
+/* Custom scrollbars matching the Forestry archival theme */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: #f6eed6;
 }
+
 ::-webkit-scrollbar-thumb {
   background: #c2c8c4;
   border-radius: 3px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: #727876;
 }

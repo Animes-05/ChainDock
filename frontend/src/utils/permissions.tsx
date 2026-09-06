@@ -37,3 +37,15 @@ export function canVerifyChain(role?: Role): boolean {
 export function canManageUsers(role?: Role): boolean {
   return hasPermission(role, PERMISSIONS.CAN_MANAGE_USERS);
 }
+
+export function canProvisionUsers(role?: Role): boolean {
+  return hasPermission(role, PERMISSIONS.CAN_MANAGE_USERS);
+}
+
+export function canRevokeCredentials(role?: Role): boolean {
+  return hasPermission(role, PERMISSIONS.CAN_MANAGE_USERS);
+}
+
+export function canRotateKeys(role?: Role): boolean {
+  return hasPermission(role, PERMISSIONS.CAN_MANAGE_USERS);
+}

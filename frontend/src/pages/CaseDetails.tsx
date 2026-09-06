@@ -9,6 +9,8 @@ import { documentsService } from '../services/documents';
 import { evidenceService } from '../services/evidence';
 import { Case, Document as DocType, EvidenceItem } from '../types';
 import { formatTimestamp, truncateHash } from '../utils/formatters';
+import { BackendUnavailable } from '../components/common/BackendUnavailable';
+import { ApiError } from '../services/api';
 
 export const CaseDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -35,21 +37,34 @@ export const CaseDetails: React.FC = () => {
   const [isEvidenceUploadOpen, setIsEvidenceUploadOpen] = useState(false);
   const [selectedEvidenceForTransfer, setSelectedEvidenceForTransfer] = useState<EvidenceItem | null>(null);
 
+  const [backendError, setBackendError] = useState<{ status: number; endpoint: string; message: string } | null>(null);
+
   const loadCaseData = async () => {
     if (!id) return;
     try {
       setLoading(true);
-      const [fetchedCase, fetchedDocs, fetchedEvidence] = await Promise.all([
-        casesService.getCaseById(id),
-        documentsService.getDocuments(id),
-        evidenceService.getEvidence(id),
-      ]);
-
+      setBackendError(null);
+      const fetchedCase = await casesService.getCaseById(id);
       setCaseItem(fetchedCase || null);
-      setDocuments(fetchedDocs);
-      setEvidenceItems(fetchedEvidence);
-    } catch (err) {
+      try {
+        const fetchedDocs = await documentsService.getDocuments(id);
+        setDocuments(fetchedDocs);
+      } catch {
+        setDocuments([]);
+      }
+      try {
+        const fetchedEvidence = await evidenceService.getEvidence(id);
+        setEvidenceItems(fetchedEvidence);
+      } catch {
+        setEvidenceItems([]);
+      }
+    } catch (err: unknown) {
       console.error('Failed to load case details:', err);
+      if (err instanceof ApiError) {
+        setBackendError({ status: err.status, endpoint: err.endpoint, message: err.message });
+      } else {
+        setBackendError({ status: 0, endpoint: `/cases/${id}`, message: (err as Error).message });
+      }
     } finally {
       setLoading(false);
     }
@@ -153,6 +168,20 @@ export const CaseDetails: React.FC = () => {
           <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-3"></div>
           Decrypting and loading docket file...
         </div>
+      </AppShell>
+    );
+  }
+
+  if (backendError) {
+    return (
+      <AppShell>
+        <BackendUnavailable
+          moduleName="Case Dossier"
+          endpoint={backendError.endpoint}
+          status={backendError.status}
+          errorMessage={backendError.message}
+          onRetry={loadCaseData}
+        />
       </AppShell>
     );
   }
@@ -729,62 +758,56 @@ export const CaseDetails: React.FC = () => {
 
               <div className="flex flex-col gap-1.5">
                 <span className="text-[10px] text-[#B7C9B1] uppercase font-semibold tracking-wider">
-                  Physical Evidence Bag Barcode #
+                  Case Docket Reference
                 </span>
                 <span className="font-mono text-xs tracking-wider bg-[#1A2B27] text-[#FFF9ED] px-3 py-2 rounded border border-[#36534B] truncate">
-                  CD-PB-2026-99120-X
+                  {caseItem.case_number || caseItem.id}
                 </span>
               </div>
 
               <div className="grid grid-cols-2 gap-2.5 pt-1">
                 <div className="bg-[#1A2B27] p-2.5 rounded border border-[#36534B]">
-                  <span className="text-[10px] text-[#B7C9B1] uppercase font-medium">NFC Tag Status</span>
+                  <span className="text-[10px] text-[#B7C9B1] uppercase font-medium">Status</span>
                   <div className="text-xs font-bold text-[#FFF9ED] mt-0.5 flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-[#6B8E7B]"></span>
-                    LOCKED
+                    {caseItem.status}
                   </div>
                 </div>
 
                 <div className="bg-[#1A2B27] p-2.5 rounded border border-[#36534B]">
-                  <span className="text-[10px] text-[#B7C9B1] uppercase font-medium">Tamper Sensor</span>
+                  <span className="text-[10px] text-[#B7C9B1] uppercase font-medium">Priority</span>
                   <div className="text-xs font-bold text-[#C3E8D2] mt-0.5 flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-[#C3E8D2]"></span>
-                    UNBROKEN
+                    {caseItem.priority}
                   </div>
                 </div>
               </div>
 
               <div className="pt-1 flex flex-col gap-1.5 border-t border-[#36534B]">
                 <div className="flex items-center justify-between text-[11px] text-[#B7C9B1]">
-                  <span>Cryptographic Proof Depth</span>
-                  <span className="font-mono text-[#FFF9ED] font-semibold">6 of 6 Sign-offs</span>
-                </div>
-                <div className="w-full bg-[#1A2B27] h-1.5 rounded-full overflow-hidden">
-                  <div className="bg-[#6B8E7B] h-full rounded-full" style={{ width: '100%' }}></div>
+                  <span>Jurisdiction</span>
+                  <span className="font-mono text-[#FFF9ED] font-semibold truncate max-w-[180px]">{caseItem.jurisdiction}</span>
                 </div>
               </div>
             </div>
 
-            {/* Current Physical Custodian Card */}
+            {/* Case Officer & Supervisory Oversight Card */}
             <div className="bg-surface-bright border border-moss-border rounded-xl p-5 shadow-xs flex flex-col gap-3">
               <span className="text-xs font-bold text-primary uppercase tracking-wider">
-                Current Physical Custodian
+                Investigating Authority
               </span>
               <div className="flex items-center gap-3 bg-surface-container-low p-3 rounded-lg border border-moss-border">
                 <div className="w-10 h-10 rounded bg-[#243B35] text-[#FFF9ED] flex items-center justify-center font-bold text-xs shrink-0">
-                  RC
+                  <span className="material-symbols-outlined text-[20px]">badge</span>
                 </div>
                 <div className="flex flex-col min-w-0">
-                  <span className="text-sm font-bold text-primary">Ray Chen (Forensic Vault)</span>
-                  <span className="text-xs text-forest-ink/70">Central Forensic Evidence Keeper</span>
+                  <span className="text-sm font-bold text-primary truncate">{caseItem.lead_officer || 'Officer Assigned'}</span>
+                  <span className="text-xs text-forest-ink/70 truncate">{caseItem.jurisdiction}</span>
                   <span className="text-[11px] font-mono text-secondary font-semibold mt-0.5 truncate">
-                    Keycard: #VAULT-K8 · Biometric Authorized
+                    Supervisor: {caseItem.supervisor || 'Institutional Oversight'}
                   </span>
                 </div>
               </div>
-              <p className="text-[11px] text-forest-ink/70 leading-relaxed">
-                Physical exhibits remain secured in climate-controlled Evidence Locker C-12 under institutional dual-custody protocol.
-              </p>
             </div>
 
             {/* Custody Lifecycle Preview */}

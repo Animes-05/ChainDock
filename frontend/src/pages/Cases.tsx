@@ -3,12 +3,15 @@ import { AppShell } from '../components/layout/AppShell';
 import { CaseList } from '../components/cases/CaseList';
 import { CaseCard } from '../components/cases/CaseCard';
 import { CaseForm } from '../components/cases/CaseForm';
-import { casesService } from '../services/cases';
 import { Case, Priority } from '../types';
+import { casesService } from '../services/cases';
+import { BackendUnavailable } from '../components/common/BackendUnavailable';
+import { ApiError } from '../services/api';
 
 export const Cases: React.FC = () => {
   const [cases, setCases] = useState<Case[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [backendError, setBackendError] = useState<{ status: number; endpoint: string; message: string } | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
 
   // Filters & Search
@@ -22,10 +25,16 @@ export const Cases: React.FC = () => {
   const fetchCases = async () => {
     try {
       setLoading(true);
+      setBackendError(null);
       const data = await casesService.getCases();
       setCases(data);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Failed to load cases:', err);
+      if (err instanceof ApiError) {
+        setBackendError({ status: err.status, endpoint: err.endpoint, message: err.message });
+      } else {
+        setBackendError({ status: 0, endpoint: '/cases', message: (err as Error).message });
+      }
     } finally {
       setLoading(false);
     }
@@ -182,6 +191,14 @@ export const Cases: React.FC = () => {
             <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-3"></div>
             Loading investigation dockets...
           </div>
+        ) : backendError ? (
+          <BackendUnavailable
+            moduleName="Investigation Dockets"
+            endpoint={backendError.endpoint}
+            status={backendError.status}
+            errorMessage={backendError.message}
+            onRetry={fetchCases}
+          />
         ) : filteredCases.length === 0 ? (
           <div className="p-16 text-center bg-surface-bright rounded-xl border border-dashed border-moss-border text-forest-ink/60">
             <p className="text-base font-semibold text-primary">No matching dockets found</p>

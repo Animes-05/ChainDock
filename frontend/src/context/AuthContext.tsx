@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, Role } from '../types';
-import { getCurrentUser, login as authLogin, logout as authLogout, DEMO_USERS } from '../services/auth';
+import { getCurrentUser, login as authLogin, logout as authLogout } from '../services/auth';
 
 interface AuthContextType {
   user: User | null;
@@ -8,10 +8,18 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password?: string) => Promise<void>;
-  loginAsRole: (role: Role) => Promise<void>;
-  switchRole: (role: Role) => Promise<void>;
   logout: () => void;
+  enterEvaluationSession: (role?: Role) => void;
 }
+
+const DEFAULT_OFFICER: User = {
+  id: 'usr-officer-01',
+  name: 'Authorized Officer',
+  email: 'officer@police.gov.in',
+  role: 'ADMIN',
+  badgeNumber: 'POL-2026',
+  jurisdictionNode: 'Node Alpha',
+};
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -20,15 +28,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    const signedOut = sessionStorage.getItem('chaindock_signed_out');
     const existing = getCurrentUser();
     if (existing) {
       setUser(existing);
+    } else if (!signedOut) {
+      // Automatically provide an active session so user can immediately browse and inspect all pages
+      sessionStorage.setItem('chaindock_token', 'session-token-active');
+      sessionStorage.setItem('chaindock_user', JSON.stringify(DEFAULT_OFFICER));
+      setUser(DEFAULT_OFFICER);
     } else {
-      // Default to Investigator for easy evaluation
-      const defaultUser = DEMO_USERS.INVESTIGATOR;
-      setUser(defaultUser);
-      sessionStorage.setItem('chaindock_user', JSON.stringify(defaultUser));
-      sessionStorage.setItem('chaindock_token', `mock_jwt_${defaultUser.role.toLowerCase()}`);
+      setUser(null);
     }
     setIsLoading(false);
   }, []);
@@ -36,6 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password?: string) => {
     setIsLoading(true);
     try {
+      sessionStorage.removeItem('chaindock_signed_out');
       const res = await authLogin(email, password);
       setUser(res.user);
     } finally {
@@ -43,17 +54,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const loginAsRole = async (targetRole: Role) => {
-    setIsLoading(true);
-    try {
-      const targetUser = DEMO_USERS[targetRole];
-      await login(targetUser.email);
-    } finally {
-      setIsLoading(false);
-    }
+  const enterEvaluationSession = (targetRole: Role = 'ADMIN') => {
+    sessionStorage.removeItem('chaindock_signed_out');
+    const evalUser: User = {
+      ...DEFAULT_OFFICER,
+      role: targetRole,
+    };
+    sessionStorage.setItem('chaindock_token', 'session-token-active');
+    sessionStorage.setItem('chaindock_user', JSON.stringify(evalUser));
+    setUser(evalUser);
   };
 
   const logout = () => {
+    sessionStorage.setItem('chaindock_signed_out', 'true');
     authLogout();
     setUser(null);
   };
@@ -66,9 +79,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: !!user,
         isLoading,
         login,
-        loginAsRole,
-        switchRole: loginAsRole,
         logout,
+        enterEvaluationSession,
       }}
     >
       {children}

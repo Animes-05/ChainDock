@@ -14,9 +14,50 @@ export interface User {
   email: string;
   name: string;
   role: Role;
-  badgeNumber: string;
-  jurisdictionNode: string;
+  badgeNumber?: string;
+  badge_number?: string;
+  department?: string;
+  jurisdictionNode?: string;
+  jurisdiction_node?: string;
+  publicKey?: string;
+  public_key?: string;
+  status?: 'ACTIVE' | 'SUSPENDED';
+  assignedCasesCount?: number;
   avatarUrl?: string;
+  created_at?: string;
+}
+
+export interface CreateUserPayload {
+  name: string;
+  email: string;
+  role: Role;
+  badge_number?: string;
+  department?: string;
+  jurisdiction_node?: string;
+  password?: string;
+}
+
+export interface UpdateUserPayload {
+  name?: string;
+  email?: string;
+  role?: Role;
+  badge_number?: string;
+  department?: string;
+  jurisdiction_node?: string;
+  status?: 'ACTIVE' | 'SUSPENDED';
+}
+
+export interface KeyEnclaveDetails {
+  userId: string;
+  userName: string;
+  badgeNumber: string;
+  publicKey: string;
+  algorithm: string;
+  curve: string;
+  keyEnclaveId: string;
+  fipsLevel: string;
+  createdAt: string;
+  status: 'ACTIVE' | 'REVOKED';
 }
 
 export interface Case {
