@@ -15,10 +15,11 @@ export const PERMISSIONS = {
   // scoped to cases the caller is assigned to (see audit.rs assert_case_access) —
   // this used to be SUPERVISOR/ADMIN only, matching the old backend gate.
   CAN_VIEW_AUDIT: ['INVESTIGATOR', 'SUPERVISOR', 'ADMIN'] as Role[],
-  // NOTE: GET /audit/verify-chain (the whole-chain walk) is still Admin-only
-  // on the backend (audit.rs verify_chain) — unrelated to the audit-trail
-  // change above and left as-is here.
-  CAN_RUN_CHAIN_VERIFICATION: ['SUPERVISOR', 'ADMIN'] as Role[],
+  // GET /audit/verify-chain (audit.rs verify_chain) is Admin-only on the
+  // backend — this used to say SUPERVISOR/ADMIN, which showed the "Verify
+  // Chain Integrity" button to supervisors who would then get a 403.
+  // Matches PRD.md's role table, which lists chain-verification under Admin only.
+  CAN_RUN_CHAIN_VERIFICATION: ['ADMIN'] as Role[],
   CAN_MANAGE_USERS: ['ADMIN'] as Role[],
   CAN_VIEW_SECURITY_CENTER: ['SUPERVISOR', 'ADMIN'] as Role[],
 };
