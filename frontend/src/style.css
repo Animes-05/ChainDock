@@ -49,3 +49,17 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #727876;
 }
+
+/* Dark scrollbar for the dark sidebar */
+.sidebar-scrollbar::-webkit-scrollbar-track {
+  background: #0e1c19;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-thumb {
+  background: #243b35;
+  border-radius: 3px;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #35584f;
+}

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Navbar } from './Navbar';
 
@@ -9,6 +9,27 @@ interface AppShellProps {
 
 export const AppShell: React.FC<AppShellProps> = ({ children }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const location = useLocation();
+
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
+
+  // Prevent background scrolling on mobile when sidebar is open
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      const originalBodyOverflow = document.body.style.overflow;
+      const originalHtmlOverflow = document.documentElement.style.overflow;
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+
+      return () => {
+        document.body.style.overflow = originalBodyOverflow;
+        document.documentElement.style.overflow = originalHtmlOverflow;
+      };
+    }
+  }, [mobileMenuOpen]);
 
   return (
     <div className="min-h-screen bg-[#fff9ed] text-[#1a2b27] font-sans antialiased flex flex-col">
@@ -21,11 +42,11 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
       {mobileMenuOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex">
           <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm touch-none"
             onClick={() => setMobileMenuOpen(false)}
           ></div>
           <div className="relative z-50">
-            <Sidebar />
+            <Sidebar onClose={() => setMobileMenuOpen(false)} />
           </div>
         </div>
       )}

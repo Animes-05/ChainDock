@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { OfficerProfileModal } from '../common/OfficerProfileModal';
@@ -13,6 +13,34 @@ export const Navbar: React.FC<NavbarProps> = ({ onMenuToggle }) => {
   const { user, role, logout } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on click outside or escape key
+  useEffect(() => {
+    if (!dropdownOpen) return;
+
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [dropdownOpen]);
 
   return (
     <header className="fixed top-0 left-0 lg:left-64 right-0 h-16 bg-[#fffdf9] border-b border-[#d1dbcb] z-40 flex items-center justify-between px-4 sm:px-6 lg:px-8 gap-3 select-none">
@@ -60,7 +88,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onMenuToggle }) => {
         <div className="hidden md:block h-6 w-px bg-[#d1dbcb]"></div>
 
         {/* User Profile Dropdown */}
-        <div className="relative">
+        <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setDropdownOpen(!dropdownOpen)}
             className="flex items-center gap-2.5 p-1 rounded hover:bg-[#f6eed6] transition-colors border border-transparent hover:border-[#d1dbcb]"

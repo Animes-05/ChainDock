@@ -3,7 +3,11 @@ import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { canManageUsers } from '../../utils/permissions';
 
-export const Sidebar: React.FC = () => {
+interface SidebarProps {
+  onClose?: () => void;
+}
+
+export const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
   const { role, logout } = useAuth();
 
   const navItems: { to: string; label: string; icon: string; badge?: string }[] = [
@@ -20,25 +24,36 @@ export const Sidebar: React.FC = () => {
   }
 
   return (
-    <aside className="fixed left-0 top-0 h-full w-64 bg-[#0e1c19] text-[#fffdf9] z-50 flex flex-col justify-between border-r border-[#243b35]/60 select-none">
-      <div className="flex flex-col">
+    <aside className="fixed left-0 top-0 h-full max-h-screen w-64 bg-[#0e1c19] text-[#fffdf9] z-50 flex flex-col border-r border-[#243b35]/60 select-none overflow-y-auto overflow-x-hidden sidebar-scrollbar">
+      <div className="flex flex-col shrink-0">
         {/* Institutional Brand Header */}
-        <div className="h-16 flex items-center px-5 gap-3 border-b border-[#243b35]/60 bg-[#0e1c19]">
-          <div className="w-8 h-8 rounded bg-[#243b35] flex items-center justify-center border border-[#d1dbcb]/20 text-[#fffdf9] shrink-0">
-            <span className="material-symbols-outlined text-[20px]">shield</span>
+        <div className="h-16 flex items-center justify-between px-5 border-b border-[#243b35]/60 bg-[#0e1c19] shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-8 h-8 rounded bg-[#243b35] flex items-center justify-center border border-[#d1dbcb]/20 text-[#fffdf9] shrink-0">
+              <span className="material-symbols-outlined text-[20px]">shield</span>
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="font-bold text-sm tracking-wider uppercase text-[#fffdf9] leading-none truncate">
+                ChainDock
+              </span>
+              <span className="text-[10px] text-[#d1dbcb]/70 uppercase tracking-wider mt-1 truncate">
+                Forensic Case Repository
+              </span>
+            </div>
           </div>
-          <div className="flex flex-col min-w-0">
-            <span className="font-bold text-sm tracking-wider uppercase text-[#fffdf9] leading-none truncate">
-              ChainDock
-            </span>
-            <span className="text-[10px] text-[#d1dbcb]/70 uppercase tracking-wider mt-1 truncate">
-              Forensic Case Repository
-            </span>
-          </div>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="lg:hidden p-1 rounded hover:bg-[#243b35] text-[#d1dbcb] hover:text-[#fffdf9] transition-colors shrink-0"
+              aria-label="Close sidebar"
+            >
+              <span className="material-symbols-outlined text-[20px]">close</span>
+            </button>
+          )}
         </div>
 
         {/* Node Identification */}
-        <div className="px-3.5 py-3 border-b border-[#243b35]/40">
+        <div className="px-3.5 py-3 border-b border-[#243b35]/40 shrink-0">
           <div className="px-3 py-2 rounded bg-[#243b35]/40 border border-[#243b35]/80 flex items-center justify-between text-xs text-[#d1dbcb] font-mono">
             <span className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
@@ -54,6 +69,7 @@ export const Sidebar: React.FC = () => {
             <NavLink
               key={item.to}
               to={item.to}
+              onClick={onClose}
               className={({ isActive }) =>
                 `flex items-center justify-between px-3 py-2.5 rounded text-xs tracking-wide transition-colors ${
                   isActive
@@ -77,7 +93,7 @@ export const Sidebar: React.FC = () => {
       </div>
 
       {/* Cryptographic Root Footer & Logout */}
-      <div className="p-3 flex flex-col gap-2">
+      <div className="p-3 flex flex-col gap-2 mt-auto shrink-0">
         <div className="p-3 rounded bg-[#243b35]/40 border border-[#243b35]/80 flex flex-col gap-1.5 font-mono">
           <div className="flex items-center justify-between text-[11px] text-[#d1dbcb]">
             <span className="flex items-center gap-1.5 font-medium">
@@ -92,7 +108,10 @@ export const Sidebar: React.FC = () => {
         </div>
 
         <button
-          onClick={logout}
+          onClick={() => {
+            onClose?.();
+            logout();
+          }}
           className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded text-xs font-semibold text-[#d1dbcb]/80 hover:text-red-400 hover:bg-[#243b35]/60 transition-colors"
         >
           <span className="material-symbols-outlined text-[16px]">logout</span>

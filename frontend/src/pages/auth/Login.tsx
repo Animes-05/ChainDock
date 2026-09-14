@@ -8,40 +8,39 @@ export const Login: React.FC = () => {
   const { login, enterEvaluationSession } = useAuth();
 
   const [activeTab, setActiveTab] = useState<'ADMIN' | 'USER'>('ADMIN');
-  const [email, setEmail] = useState('admin@police.gov.in');
-  const [password, setPassword] = useState('Admin@123456');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [jurisdiction, setJurisdiction] = useState('Node Alpha');
-  const [sessionToken, setSessionToken] = useState('849201');
+  const [sessionToken, setSessionToken] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleTabSwitch = (mode: 'ADMIN' | 'USER') => {
     setActiveTab(mode);
     setError('');
-    if (mode === 'ADMIN') {
-      setEmail('admin@police.gov.in');
-      setPassword('Admin@123456');
-      setSessionToken('849201');
-    } else {
-      setEmail('officer@police.gov.in');
-      setPassword('Officer@123456');
-      setSessionToken('384910');
-    }
   };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email.trim()) {
+      setError('Please enter your email address.');
+      return;
+    }
+    if (!password) {
+      setError('Please enter your password.');
+      return;
+    }
     setLoading(true);
     setError('');
 
     try {
-      await login(email, password);
+      await login(email.trim(), password);
       navigate('/dashboard');
     } catch (err: unknown) {
       const msg =
         err instanceof Error
           ? err.message
-          : 'Unable to authenticate with backend at http://127.0.0.1:3000. Ensure server is running.';
+          : 'Unable to authenticate with backend. Ensure server is running.';
       setError(msg);
     } finally {
       setLoading(false);
@@ -249,6 +248,7 @@ export const Login: React.FC = () => {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
+                      placeholder={activeTab === 'ADMIN' ? 'admin@police.gov.in' : 'officer@police.gov.in'}
                       className="w-full h-10 pl-9 pr-3 bg-[#fff9ed] text-[#1a2b27] border border-[#d1dbcb] rounded text-xs focus:outline-none focus:border-[#2e5d4b] focus:ring-1 focus:ring-[#2e5d4b] font-mono"
                     />
                   </div>
@@ -267,6 +267,7 @@ export const Login: React.FC = () => {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
+                      placeholder="••••••••••••"
                       className="w-full h-10 pl-9 pr-3 bg-[#fff9ed] text-[#1a2b27] border border-[#d1dbcb] rounded text-xs focus:outline-none focus:border-[#2e5d4b] focus:ring-1 focus:ring-[#2e5d4b] font-mono"
                     />
                   </div>
@@ -284,7 +285,7 @@ export const Login: React.FC = () => {
                     value={sessionToken}
                     onChange={(e) => setSessionToken(e.target.value)}
                     className="w-full h-10 px-3 bg-[#fff9ed] text-[#1a2b27] border border-[#d1dbcb] rounded text-xs focus:outline-none focus:border-[#2e5d4b] focus:ring-1 focus:ring-[#2e5d4b] font-mono"
-                    placeholder="6-digit token (e.g. 849201)"
+                    placeholder="6-digit MFA / TOTP token (optional)"
                   />
                 </div>
 
