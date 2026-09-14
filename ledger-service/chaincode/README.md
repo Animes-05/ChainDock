@@ -1,4 +1,5 @@
 markdown
+
 # ChainDock — Chaincode
 
 TypeScript chaincode implementing the ChainDock custody/audit ledger contract, per
@@ -10,7 +11,6 @@ Implements three functions:
 AppendEntry(actorId, action, documentId, caseId, timestamp) → entryId
 GetHistory(caseId) → Entry[]
 GetEntry(entryId) → Entry
-
 
 No access-control or business-rule logic lives here — that stays in Axum. This
 chaincode's only job is recording and serving custody/audit events.
@@ -26,6 +26,7 @@ on the Fabric track clones it independently, on their own machine, outside the
 ChainDock repo.
 
 **Prerequisites:**
+
 - Docker Desktop, running
 - Node.js (v18+) and npm
 - **Windows users: do all of this inside WSL2's native filesystem** (e.g.
@@ -37,12 +38,14 @@ ChainDock repo.
 **Steps:**
 
 1. Clone `fabric-samples` somewhere convenient, outside this repo:
+
 ```bash
    git clone https://github.com/hyperledger/fabric-samples.git
    cd fabric-samples
 ```
 
 2. Install the Fabric binaries and Docker images (official installer script):
+
 ```bash
    curl -sSLO https://raw.githubusercontent.com/hyperledger/fabric/main/scripts/install-fabric.sh
    chmod +x install-fabric.sh
@@ -50,16 +53,18 @@ ChainDock repo.
 ```
 
 3. Bring up the test network with a channel:
+
 ```bash
    cd fabric-samples/test-network
-   ./network.sh up createChannel -c chaindock-channel -ca
+   ./network.sh up createChannel -c chaindock-channel -ca -s couchdb
 ```
 
 4. Clone **this** ChainDock repo separately, also inside WSL2's native filesystem,
    so both live on the same filesystem type relative to each other:
+
 ```bash
    git clone <this-repo-url>
-   cd ChainDock/backend/ledger-service/chaincode
+   cd ChainDock/ledger-service/chaincode
    npm install
    npm run build
 ```
@@ -92,7 +97,7 @@ From `fabric-samples/test-network`, with the network already up (see §0 step 3)
 ./network.sh deployCC \
   -c chaindock-channel \
   -ccn chaindock \
-  -ccp <path-to-your-ChainDock-clone>/backend/ledger-service/chaincode \
+  -ccp <path-to-your-ChainDock-clone>/ledger-service/chaincode \
   -ccl typescript
 ```
 
@@ -163,9 +168,9 @@ supported" error).
   block/endorsement structure is the tamper-evidence guarantee — we are not
   re-deriving a parallel hash chain on top of it (see `ARCHITECTURE.md` §4).
 - Each entry does store its own `entryHash` (`sha256(actorId + action + documentId
-  + caseId + timestamp)`) — this exists solely to back the tamper-demo mechanism
-  (a direct CouchDB state-DB edit, caught by hash recomputation on
-  `GET /ledger/verify`), not to chain entries together.
+  - caseId + timestamp)`) — this exists solely to back the tamper-demo mechanism
+(a direct CouchDB state-DB edit, caught by hash recomputation on
+`GET /ledger/verify`), not to chain entries together.
 
 ---
 
