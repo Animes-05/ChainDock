@@ -7,6 +7,7 @@ pub struct Config {
     pub database_url: String,
     pub jwt_secret: String,
     pub port: u16,
+    pub ledger_service_url: String,
 }
 
 impl Config {
@@ -23,11 +24,14 @@ impl Config {
             .unwrap_or_else(|_| "3000".to_string())
             .parse()
             .expect("PORT must be a valid u16");
+        let ledger_service_url = env::var("LEDGER_SERVICE_URL")
+            .unwrap_or_else(|_| "http://127.0.0.1:3001".to_string());
 
         Self {
             database_url,
             jwt_secret,
             port,
+            ledger_service_url,
         }
     }
 }
