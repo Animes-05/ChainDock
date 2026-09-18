@@ -84,21 +84,34 @@ export async function verifyAuditChain(): Promise<AuditVerificationResult> {
   };
 }
 
-// There is no backend route to deliberately corrupt a row from the app —
-// by design, tampering is only ever introduced via scripts/seed_tamper.sql
-// before a demo (see DESIGN.md "the demo moment"). These are kept as no-ops
-// so callers in AuditLog.tsx don't crash, but they no longer pretend to hit
-// a real endpoint.
-export async function injectTamperAtBlock150(): Promise<boolean> {
-  console.warn(
-    'Tamper injection is not an API feature — run scripts/seed_tamper.sql against the DB before the demo instead.'
-  );
-  return false;
+// DEMO ONLY — pitch-day tamper injection, wired to the admin-gated
+// POST /audit/demo/tamper|restore (which proxy the Ledger Service's mock-mode
+// demo endpoints). Callers in AuditLog.tsx re-fetch + re-verify afterwards,
+// so a `true` here is immediately followed by the red INTEGRITY BREACH state.
+// In fabric mode tamper returns false (HTTP 501/502) — then tamper the entry
+// directly in CouchDB and press Verify instead (see DESIGN.md §5).
+export async function injectTamperAtBlock150(entryId?: string): Promise<boolean> {
+  try {
+    await api.post('/audit/demo/tamper', { entry_id: entryId ?? null });
+    return true;
+  } catch (err) {
+    console.warn(
+      'Demo tamper failed — ledger-service is likely in fabric mode. ' +
+        'Tamper an entry directly in CouchDB, then press Verify instead.',
+      err,
+    );
+    return false;
+  }
 }
 
-export async function resetAuditChain(): Promise<boolean> {
-  console.warn('There is no reset-chain endpoint — the audit log is append-only by design.');
-  return false;
+export async function resetAuditChain(entryId?: string): Promise<boolean> {
+  try {
+    await api.post('/audit/demo/restore', { entry_id: entryId ?? null });
+    return true;
+  } catch (err) {
+    console.warn('Demo restore failed:', err);
+    return false;
+  }
 }
 
 export const auditService = {
