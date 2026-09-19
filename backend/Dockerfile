@@ -1,7 +1,11 @@
 # ChainDock Backend (Axum) — Railway
 FROM rust:1.82-slim AS build
 WORKDIR /app/backend
+# Offline sqlx: query! macros resolve from committed .sqlx/ so the
+# Railway build needs no live DATABASE_URL.
+ENV SQLX_OFFLINE=true
 COPY Cargo.toml Cargo.lock ./
+COPY .sqlx ./.sqlx
 # Cache deps: dummy build then real copy (migrations + src change often).
 RUN mkdir -p src && echo 'fn main() {}' > src/main.rs && cargo build --release || true
 COPY src ./src

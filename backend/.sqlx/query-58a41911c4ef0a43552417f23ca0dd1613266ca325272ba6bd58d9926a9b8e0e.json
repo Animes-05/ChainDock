@@ -1,0 +1,73 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT rt.id as \"id!\", rt.user_id as \"user_id!\", u.email, u.password_hash, u.role as \"role: crate::models::Role\",\n               u.status as \"status: crate::models::UserStatus\"\n        FROM refresh_tokens rt\n        JOIN users u ON u.id = rt.user_id\n        WHERE rt.token_hash = $1 AND rt.revoked_at IS NULL AND rt.expires_at > now()\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "user_id!",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "email",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "password_hash",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "role: crate::models::Role",
+        "type_info": {
+          "Custom": {
+            "name": "user_role",
+            "kind": {
+              "Enum": [
+                "investigator",
+                "supervisor",
+                "admin"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "status: crate::models::UserStatus",
+        "type_info": {
+          "Custom": {
+            "name": "user_status",
+            "kind": {
+              "Enum": [
+                "active",
+                "suspended"
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "58a41911c4ef0a43552417f23ca0dd1613266ca325272ba6bd58d9926a9b8e0e"
+}

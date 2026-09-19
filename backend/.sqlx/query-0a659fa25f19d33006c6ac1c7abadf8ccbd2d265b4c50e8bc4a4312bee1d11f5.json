@@ -1,0 +1,65 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT id, case_id, uploaded_by, title, doc_type, description, file_hash, version\n            FROM documents\n            WHERE case_id = $1 AND search_vector @@ plainto_tsquery('english', $2)\n            ORDER BY ts_rank(search_vector, plainto_tsquery('english', $2)) DESC\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "case_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "uploaded_by",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 3,
+        "name": "title",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "doc_type",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "file_hash",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "version",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "0a659fa25f19d33006c6ac1c7abadf8ccbd2d265b4c50e8bc4a4312bee1d11f5"
+}
