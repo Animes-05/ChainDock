@@ -10,6 +10,7 @@ use crate::{
     error::AppError,
     extractors::{require_role, AuthenticatedUser},
     handlers::audit,
+    ledger_client,
     models::Role,
     AppState,
 };
@@ -80,6 +81,22 @@ async fn create_case(
     audit::append_entry(&mut tx, user.user_id, "CREATE_CASE", None, Some(case_id)).await?;
 
     tx.commit().await?;
+
+    // Postgres commit first, ledger append second — no shared 2PC between
+    // Postgres and Fabric (ARCHITECTURE.md §4). Best-effort: a ledger failure
+    // is logged loudly but does not fail the request (demo-safety for P0).
+    // The Postgres audit_log row above remains as fallback mirror for tomorrow.
+    if let Err(e) = ledger_client::append_ledger_entry(
+        &state.config.ledger_service_url,
+        user.user_id,
+        "CREATE_CASE",
+        None,
+        Some(case_id),
+    )
+    .await
+    {
+        tracing::error!(error = %e, case_id = %case_id, "ledger append failed after CREATE_CASE commit (gap in Fabric trail)");
+    }
 
     Ok(Json(CaseResponse {
         id: case_id,
@@ -223,6 +240,19 @@ async fn assign_user(
     audit::append_entry(&mut tx, user.user_id, "ASSIGN_USER", None, Some(case_id)).await?;
 
     tx.commit().await?;
+
+    // Postgres commit first, ledger append second — no 2PC (see create_case).
+    if let Err(e) = ledger_client::append_ledger_entry(
+        &state.config.ledger_service_url,
+        user.user_id,
+        "ASSIGN_USER",
+        None,
+        Some(case_id),
+    )
+    .await
+    {
+        tracing::error!(error = %e, case_id = %case_id, "ledger append failed after ASSIGN_USER commit (gap in Fabric trail)");
+    }
 
     Ok(Json(serde_json::json!({ "status": "assigned" })))
 }

@@ -1,0 +1,154 @@
+// ChainDock demo requests — Step 3: backend alone (VS Code REST Client format).
+// Flow: bootstrap admin -> login -> seed roles -> case -> upload -> trail -> verify.
+// Fill {{token}} / {{caseId}} / {{docId}} / {{userId}} from responses as you go.
+
+@baseUrl = http://127.0.0.1:3000
+@ledgerUrl = http://127.0.0.1:3001
+// Paste values here after each call (access_token, case id, ...):
+@token = eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJjNjNlMDM3MS1jZmZlLTRjOGYtYTI4My0wODY3YzM3OGFjZjUiLCJyb2xlIjoiQWRtaW4iLCJleHAiOjE3ODk3NDM5MjEsImlhdCI6MTc4OTc0MzAyMX0.IYeQIduKT_0r9YZgUfOB-rWShQVDusBO8doQVnP3uQY
+@caseId = b023a2a0-7a74-401b-bc47-e2e4b2b8c4d1
+@userId = 13daac36-b93c-4e18-ab38-d1258628438a
+
+### 0a. Ledger-Service health (proves Fabric bridge is up; mode=mock|fabric)
+GET {{ledgerUrl}}/health
+
+### 0b. Backend health
+GET {{baseUrl}}/health
+
+### 1. Bootstrap FIRST admin (works with NO token only while users table is empty)
+# Role is case-sensitive: "Admin" | "Supervisor" | "Investigator" (exact case).
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "admin@chaindock.local",
+  "password": "Admin@12345",
+  "role": "Admin"
+}
+
+### 2. Login as admin -> copy access_token into @token above
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@chaindock.local",
+  "password": "Admin@12345"
+}
+
+### 3a. Register a supervisor (Admin token required from here on)
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "email": "supervisor@chaindock.local",
+  "password": "Superv@12345",
+  "role": "Supervisor"
+}
+
+### 3b. Register an investigator -> copy its user.id into @userId above
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "email": "investigator@chaindock.local",
+  "password": "Invest@12345",
+  "role": "Investigator"
+}
+
+### 4. Create case (Supervisor/Admin) -> copy id into @caseId above
+POST {{baseUrl}}/cases
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "title": "Demo FIR Case",
+  "case_number": "DEMO-001"
+}
+
+### 5. Assign investigator to the case
+POST {{baseUrl}}/cases/{{caseId}}/assign
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "user_id": "{{userId}}"
+}
+
+### 6. List cases (investigators see only assigned ones)
+GET {{baseUrl}}/cases
+Authorization: Bearer {{token}}
+
+### 7. Upload document (multipart; field names must be title/doc_type/description/file)
+# Put a real file next to this .http file, e.g. backend/requests/sample-fir.txt,
+# and point the < path at it.
+POST {{baseUrl}}/cases/{{caseId}}/documents
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=chaindock-boundary
+
+--chaindock-boundary
+Content-Disposition: form-data; name="title"
+
+Sample FIR
+--chaindock-boundary
+Content-Disposition: form-data; name="doc_type"
+
+FIR
+--chaindock-boundary
+Content-Disposition: form-data; name="description"
+
+Demo upload for internal round
+--chaindock-boundary
+Content-Disposition: form-data; name="file"; filename="sample-fir.txt"
+Content-Type: text/plain
+
+< ./sample-fir.txt
+--chaindock-boundary--
+
+### 8. List documents in the case (add ?q=fir for full-text search)
+GET {{baseUrl}}/cases/{{caseId}}/documents
+Authorization: Bearer {{token}}
+
+### 9. Case audit trail (should now contain Fabric entryIds via the ledger proxy)
+GET {{baseUrl}}/cases/{{caseId}}/audit-trail
+Authorization: Bearer {{token}}
+
+### 10. Verify chain integrity (Admin only) -> expect {"valid":true,...}
+GET {{baseUrl}}/audit/verify-chain
+Authorization: Bearer {{token}}
+
+### 11. Ledger-Service verify, direct (bypasses Axum; same verdict as #10 when wired)
+GET {{ledgerUrl}}/ledger/verify
+
+### 13. DEMO — inject tamper (Admin only; tampers the latest ledger entry)
+# After this, re-run #10 and expect {"valid":false,"broken_at_id":"..."}.
+POST {{baseUrl}}/audit/demo/tamper
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+### 13.5
+POST http://127.0.0.1:3001/ledger/demo/tamper
+Content-Type: application/json
+
+{}
+
+### 14. DEMO — restore chain (Admin only), then re-run #10 for {"valid":true}
+POST {{baseUrl}}/audit/demo/restore
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{}
+
+### 15. Refresh session (rotates the refresh token)
+# Use the "refresh_token" value from step 2's login response — NOT "access_token".
+# Each successful refresh REVOKES the token you sent: re-sending an already-used
+# refresh token returns 401 {"error":"unauthorized"} by design. If you get 401
+# here, re-run step 2 (login) to get a fresh pair and try again with the NEW
+# refresh_token.
+POST {{baseUrl}}/auth/refresh
+Content-Type: application/json
+
+{
+  "refresh_token": "16dcd78524e49d84b2c39f8ca4df4bdb07e654989d8765a010baf13835d3bed4"
+}
