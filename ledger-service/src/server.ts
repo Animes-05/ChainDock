@@ -16,6 +16,7 @@ import { entriesRouter } from './routes/entries';
 import { trailRouter } from './routes/trail';
 import { verifyRouter } from './routes/verify';
 import { demoRouter } from './routes/demo';
+import { persistenceFile } from './store';
 
 const PORT = Number(process.env.PORT ?? 3001);
 const mode = (): string =>
@@ -48,6 +49,6 @@ app.listen(PORT, () => {
       `chaincode=${process.env.CHAINCODE ?? 'chaindock'}`,
       `peer=${process.env.PEER_ENDPOINT ?? 'localhost:7051'}`);
   } else {
-    console.log('[ledger-service] mock store active — no Fabric network required.');
+    console.log(`[ledger-service] mock store active — no Fabric network required. persistence=${persistenceFile()}`);
   }
 });

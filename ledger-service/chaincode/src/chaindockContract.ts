@@ -24,7 +24,8 @@ export interface Entry {
     documentId: string; // '' when not applicable — avoid null, keep state values uniformly typed
     caseId: string;      // '' when not applicable
     timestamp: string;   // ISO-8601, supplied by the Ledger Service (see DESIGN.md §2)
-    entryHash: string;   // sha256(actorId + action + documentId + caseId + timestamp)
+    entryHash: string;   // sha256(actorId + action + documentId + caseId + timestamp + orgId)
+    orgId: string;       // logical org (POLICE/COURT/FORENSICS); '' = unspecified (back-compat)
 }
 
 /**
@@ -39,6 +40,7 @@ function computeEntryHash(
     documentId: string,
     caseId: string,
     timestamp: string,
+    orgId = '',
 ): string {
     return createHash('sha256')
         .update(actorId)
@@ -46,6 +48,7 @@ function computeEntryHash(
         .update(documentId)
         .update(caseId)
         .update(timestamp)
+        .update(orgId)
         .digest('hex');
 }
 
@@ -76,6 +79,7 @@ export class ChainDockContract extends Contract {
         documentId: string,
         caseId: string,
         timestamp: string,
+        orgId = '',
     ): Promise<string> {
         if (!actorId || !action || !timestamp) {
             throw new Error('actorId, action, and timestamp are required');
@@ -84,6 +88,10 @@ export class ChainDockContract extends Contract {
         const entryId = ctx.stub.getTxID();
         const docId = documentId ?? '';
         const caseIdVal = caseId ?? '';
+        // Normalize to the canonical set; unknown values become '' (back-compat).
+        const org = ['POLICE', 'COURT', 'FORENSICS'].includes((orgId ?? '').toUpperCase())
+            ? (orgId as string).toUpperCase()
+            : '';
 
         const entry: Entry = {
             docType: DOC_TYPE,
@@ -93,7 +101,8 @@ export class ChainDockContract extends Contract {
             documentId: docId,
             caseId: caseIdVal,
             timestamp,
-            entryHash: computeEntryHash(actorId, action, docId, caseIdVal, timestamp),
+            entryHash: computeEntryHash(actorId, action, docId, caseIdVal, timestamp, org),
+            orgId: org,
         };
 
         await ctx.stub.putState(entryId, Buffer.from(JSON.stringify(entry)));

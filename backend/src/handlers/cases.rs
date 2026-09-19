@@ -92,6 +92,7 @@ async fn create_case(
         "CREATE_CASE",
         None,
         Some(case_id),
+        None,
     )
     .await
     {
@@ -248,6 +249,7 @@ async fn assign_user(
         "ASSIGN_USER",
         None,
         Some(case_id),
+        None,
     )
     .await
     {

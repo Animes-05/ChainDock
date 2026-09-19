@@ -73,11 +73,15 @@ Every mutating endpoint still writes its Postgres row inside a transaction. Once
 
 ```
 POST   /ledger/entries
-         body: { actor_id, action, document_id?, case_id?, timestamp }
-         → invokes chaincode AppendEntry, returns the Fabric tx id
+         body: { actor_id, action, document_id?, case_id?, timestamp, org_id? }
+         org_id ∈ {POLICE, COURT, FORENSICS} ('' = untagged, back-compat;
+         included in entryHash). Also accepts X-Org-Id header.
+         → mock: returns mock-<uuid>; fabric: invokes chaincode AppendEntry,
+         returns the Fabric tx id
 
 GET    /ledger/cases/:case_id/trail
          → chaincode query, returns chronological entries for a case
+         (each entry now carries orgId)
 
 GET    /ledger/verify
          → asks Fabric for its own integrity/health state; for the demo's
@@ -86,17 +90,31 @@ GET    /ledger/verify
            return enough to reconstruct a pass/fail + break-point UI, same
            shape as the old verify-chain response the frontend already expects:
            { valid: boolean, total_entries: number, broken_at_id?: string }
+
+GET    /ledger/orgs
+         → mock-mode per-org counts for the multi-org demo dashboard:
+           { orgs: [{ org_id, count }] } (fabric: [] with note)
+
+GET    /ledger/known-cases → { case_ids: string[] }
 ```
+
+Axum proxies (frontend-facing): `GET /audit/verify-chain`, `GET /cases/:id/audit-trail`
+(entries now include `org_id`), `GET /audit/orgs` (proxies `/ledger/orgs`).
+Option A deploy: ledger runs `LEDGER_MODE=mock` with `LEDGER_FILE=/data/ledger.json`
+on a Railway Volume (single replica).
 
 This internal API is not exposed to the frontend directly — Axum is still the only thing the frontend talks to. Keep the Ledger Service's contract boring and stable; all the "what does this mean to the user" logic stays in Axum/frontend.
 
 ### Chaincode (TypeScript) — invoked by the Ledger Service via Fabric Gateway SDK
 
 ```
-AppendEntry(actorId, action, documentId, caseId, timestamp) → entryId
+AppendEntry(actorId, action, documentId, caseId, timestamp, orgId?) → entryId
 GetHistory(caseId) → Entry[]
 GetEntry(entryId) → Entry
 ```
+`Entry` carries `orgId` (POLICE/COURT/FORENSICS, '' back-compat) included in
+`entryHash = sha256(actor+action+doc+case+ts+org)` — appended last so legacy
+entries verify unchanged. Mock `store.ts` mirrors this exactly.
 
 Keep chaincode minimal: record and serve data. No access-control logic on-chain — that stays in Axum. No business rules on-chain beyond "does this entry's shape look valid."
 

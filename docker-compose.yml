@@ -1,0 +1,56 @@
+# ChainDock — local parity for Railway topology (Option A).
+# backend + ledger-service + postgres. Ledger persists to a named volume
+# (/data/ledger.json); backend uploads persist to backend-data volume.
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: chaindock
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  ledger-service:
+    build: ./ledger-service
+    environment:
+      PORT: 3001
+      LEDGER_MODE: mock
+      ALLOW_DEMO_ENDPOINTS: "true"
+      LEDGER_FILE: /data/ledger.json
+      CHANNEL: chaindock-channel
+      CHAINCODE: chaindock
+    ports:
+      - "3001:3001"
+    volumes:
+      - ledger-data:/data
+
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgres://postgres:password@postgres:5432/chaindock
+      JWT_SECRET: dev-only-change-me
+      PORT: 3000
+      LEDGER_SERVICE_URL: http://ledger-service:3001
+      RUST_LOG: info
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ledger-service:
+        condition: service_started
+    volumes:
+      - backend-data:/app/data/documents
+
+volumes:
+  pg-data:
+  ledger-data:
+  backend-data:

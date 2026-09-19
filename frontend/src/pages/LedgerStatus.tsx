@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { AppShell } from '../components/layout/AppShell';
-import { auditService } from '../services/audit';
+import { auditService, getLedgerOrgs, type LedgerOrgCount } from '../services/audit';
 import { useAuth } from '../context/AuthContext';
 import { AuditEvent, AuditVerificationResult, LedgerHealthResponse, BackendHealthResponse } from '../types';
 import { BackendUnavailable } from '../components/common/BackendUnavailable';
@@ -34,6 +34,8 @@ export const LedgerStatus: React.FC = () => {
   const [events, setEvents] = useState<AuditEvent[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [filterQuery, setFilterQuery] = useState('');
+  const [orgFilter, setOrgFilter] = useState<string>('');
+  const [orgCounts, setOrgCounts] = useState<LedgerOrgCount[]>([]);
   const [backendError, setBackendError] = useState<{ status: number; endpoint: string; message: string } | null>(null);
 
   // ── Demo Controls ──
@@ -68,8 +70,12 @@ export const LedgerStatus: React.FC = () => {
     try {
       setLoadingEvents(true);
       setBackendError(null);
-      const logs = await auditService.getAuditEvents();
+      const [logs, orgs] = await Promise.all([
+        auditService.getAuditEvents(),
+        getLedgerOrgs(),
+      ]);
       setEvents(logs);
+      setOrgCounts(orgs);
     } catch (err: unknown) {
       if (err instanceof ApiError) {
         setBackendError({ status: err.status, endpoint: err.endpoint, message: err.message });
@@ -140,6 +146,7 @@ export const LedgerStatus: React.FC = () => {
   const ledgerMode = ledgerHealth?.mode || null;
 
   const filteredEvents = events.filter((e) => {
+    if (orgFilter && (e.org_id || '') !== orgFilter) return false;
     if (!filterQuery) return true;
     const q = filterQuery.toLowerCase();
     return (
@@ -147,7 +154,8 @@ export const LedgerStatus: React.FC = () => {
       e.action.toLowerCase().includes(q) ||
       e.actor.toLowerCase().includes(q) ||
       e.target_reference.toLowerCase().includes(q) ||
-      e.entry_hash.toLowerCase().includes(q)
+      e.entry_hash.toLowerCase().includes(q) ||
+      (e.org_id || '').toLowerCase().includes(q)
     );
   });
 
@@ -490,19 +498,37 @@ export const LedgerStatus: React.FC = () => {
                 </div>
                 <p className="text-[11px] text-[#4e5c56] mt-0.5">
                   All audit events recorded on the ledger ({events.length} total)
+                  {orgCounts.length > 0 && (
+                    <span className="ml-2 font-mono">
+                      {orgCounts.map((o) => `${o.org_id}:${o.count}`).join(' · ')}
+                    </span>
+                  )}
                 </p>
               </div>
-              <div className="relative w-full sm:w-64">
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#4e5c56] text-[18px]">
-                  filter_list
-                </span>
-                <input
-                  type="text"
-                  value={filterQuery}
-                  onChange={(e) => setFilterQuery(e.target.value)}
-                  placeholder="Filter entry ID, action, actor…"
-                  className="w-full h-9 pl-9 pr-3 bg-[#fffdf9] border border-[#d1dbcb] rounded text-xs text-[#1a2b27] placeholder:text-[#4e5c56]/70 focus:outline-none focus:border-[#2e5d4b] font-mono"
-                />
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <select
+                  value={orgFilter}
+                  onChange={(e) => setOrgFilter(e.target.value)}
+                  className="h-9 px-3 bg-[#fffdf9] border border-[#d1dbcb] rounded text-xs text-[#1a2b27] focus:outline-none focus:border-[#2e5d4b] font-mono"
+                  title="Filter by org"
+                >
+                  <option value="">All orgs (POLICE/COURT/FORENSICS)</option>
+                  <option value="POLICE">POLICE</option>
+                  <option value="COURT">COURT</option>
+                  <option value="FORENSICS">FORENSICS</option>
+                </select>
+                <div className="relative w-full sm:w-64">
+                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#4e5c56] text-[18px]">
+                    filter_list
+                  </span>
+                  <input
+                    type="text"
+                    value={filterQuery}
+                    onChange={(e) => setFilterQuery(e.target.value)}
+                    placeholder="Filter entry ID, action, actor…"
+                    className="w-full h-9 pl-9 pr-3 bg-[#fffdf9] border border-[#d1dbcb] rounded text-xs text-[#1a2b27] placeholder:text-[#4e5c56]/70 focus:outline-none focus:border-[#2e5d4b] font-mono"
+                  />
+                </div>
               </div>
             </div>
 
@@ -515,6 +541,7 @@ export const LedgerStatus: React.FC = () => {
                       <th className="py-2.5 px-4 font-mono">Entry ID</th>
                       <th className="py-2.5 px-4">Action</th>
                       <th className="py-2.5 px-4">Actor</th>
+                      <th className="py-2.5 px-4">Org</th>
                       <th className="py-2.5 px-4">Reference</th>
                       <th className="py-2.5 px-4 font-mono">Entry Hash</th>
                       <th className="py-2.5 px-4 font-mono">Timestamp</th>
@@ -524,7 +551,7 @@ export const LedgerStatus: React.FC = () => {
                   <tbody className="divide-y divide-[#d1dbcb]/60 font-sans">
                     {filteredEvents.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="py-12 text-center text-[#4e5c56] text-xs">
+                        <td colSpan={9} className="py-12 text-center text-[#4e5c56] text-xs">
                           {events.length === 0
                             ? 'No ledger entries found. Create a case and upload a document to generate entries.'
                             : 'No entries matching the filter query.'}
@@ -548,6 +575,11 @@ export const LedgerStatus: React.FC = () => {
                             </span>
                           </td>
                           <td className="py-3 px-4 font-medium text-[#1a2b27]">{evt.actor}</td>
+                          <td className="py-3 px-4">
+                            <span className="px-2 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-900 font-mono text-[10px] font-bold">
+                              {evt.org_id || '—'}
+                            </span>
+                          </td>
                           <td className="py-3 px-4 text-[#4e5c56] max-w-xs truncate">{evt.target_reference}</td>
                           <td className="py-3 px-4 font-mono text-[#4e5c56] text-[11px]">
                             {evt.entry_hash

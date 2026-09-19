@@ -351,6 +351,7 @@ async fn insert_evidence_doc(
         "UPLOAD",
         Some(doc_id),
         Some(case_id),
+        None,
     )
     .await
     {
@@ -426,6 +427,7 @@ async fn transfer_custody(
         "TRANSFER",
         Some(id),
         Some(doc.case_id),
+        None,
     )
     .await
     {
