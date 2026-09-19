@@ -9,12 +9,21 @@ pub enum Role {
     Admin,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
+#[sqlx(type_name = "user_status", rename_all = "lowercase")]
+#[serde(rename_all = "UPPERCASE")]
+pub enum UserStatus {
+    Active,
+    Suspended,
+}
+
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct User {
     pub id: Uuid,
     pub email: String,
     pub password_hash: String,
     pub role: Role,
+    pub status: UserStatus,
 }
 
 /// Safe to send to the client — never serialize `User` directly (it carries the hash).
@@ -23,6 +32,7 @@ pub struct UserPublic {
     pub id: Uuid,
     pub email: String,
     pub role: Role,
+    pub status: UserStatus,
 }
 
 impl From<User> for UserPublic {
@@ -31,6 +41,7 @@ impl From<User> for UserPublic {
             id: u.id,
             email: u.email,
             role: u.role,
+            status: u.status,
         }
     }
 }

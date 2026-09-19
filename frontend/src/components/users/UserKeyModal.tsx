@@ -13,11 +13,9 @@ export const UserKeyModal: React.FC<UserKeyModalProps> = ({
   officer,
   isOpen,
   onClose,
-  onKeyRotated,
 }) => {
   const [copied, setCopied] = useState(false);
-  const [isRotating, setIsRotating] = useState(false);
-  const [rotationSuccess, setRotationSuccess] = useState<string | null>(null);
+  const [rotationSuccess] = useState<string | null>(null);
   const [rotationError, setRotationError] = useState<string | null>(null);
 
   if (!isOpen || !officer) return null;
@@ -30,21 +28,9 @@ export const UserKeyModal: React.FC<UserKeyModalProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleRotateKey = async () => {
-    try {
-      setIsRotating(true);
-      setRotationError(null);
-      setRotationSuccess(null);
-      const result = await userService.rotateUserKey(officer.id);
-      setRotationSuccess(`Key rotated successfully: ${result.publicKey}`);
-      if (onKeyRotated) {
-        onKeyRotated();
-      }
-    } catch (err: any) {
-      setRotationError(err?.message || 'Failed to rotate cryptographic key');
-    } finally {
-      setIsRotating(false);
-    }
+  const handleRotateKey = () => {
+    // Rotation endpoint intentionally omitted (product decision).
+    setRotationError('Key rotation is disabled in this build — no backend endpoint.');
   };
 
   return (
@@ -154,13 +140,14 @@ export const UserKeyModal: React.FC<UserKeyModalProps> = ({
         <div className="p-4 border-t border-[#d1dbcb] bg-[#f6eed6]/40 flex items-center justify-between gap-3">
           <button
             onClick={handleRotateKey}
-            disabled={isRotating}
-            className="px-3 py-1.5 rounded bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300 text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-60"
+            disabled
+            title="Key rotation is disabled in this build (no backend endpoint)"
+            className="px-3 py-1.5 rounded bg-amber-100 text-amber-950 border border-amber-300 text-xs font-semibold flex items-center gap-1.5 transition-colors opacity-60 cursor-not-allowed"
           >
-            <span className={`material-symbols-outlined text-[16px] ${isRotating ? 'animate-spin' : ''}`}>
+            <span className="material-symbols-outlined text-[16px]">
               refresh
             </span>
-            <span>{isRotating ? 'Rotating Keypair...' : 'Rotate Key Enclave'}</span>
+            <span>Rotate Key Enclave (Disabled)</span>
           </button>
 
           <button
