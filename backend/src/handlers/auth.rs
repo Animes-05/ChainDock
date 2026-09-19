@@ -9,7 +9,7 @@ use crate::{
     error::AppError,
     extractors::{require_role, AuthenticatedUser},
     jwt,
-    models::{Role, User, UserPublic},
+    models::{Role, User, UserPublic, UserStatus},
     AppState,
 };
 
@@ -85,6 +85,7 @@ async fn register(
             id,
             email: body.email,
             role: body.role,
+            status: UserStatus::Active,
         },
     }))
 }
@@ -107,7 +108,7 @@ async fn login(
     Json(body): Json<LoginRequest>,
 ) -> Result<Json<AuthResponse>, AppError> {
     let user = sqlx::query_as::<_, User>(
-        "SELECT id, email, password_hash, role FROM users WHERE email = $1",
+        "SELECT id, email, password_hash, role, status FROM users WHERE email = $1",
     )
     .bind(&body.email)
     .fetch_optional(&state.db)
@@ -117,6 +118,10 @@ async fn login(
     let valid = bcrypt::verify(&body.password, &user.password_hash)?;
     if !valid {
         return Err(AppError::InvalidCredentials);
+    }
+
+    if user.status == UserStatus::Suspended {
+        return Err(AppError::Forbidden);
     }
 
     let access_token = jwt::issue_access_token(user.id, user.role, &state.config.jwt_secret)?;
@@ -143,7 +148,8 @@ async fn refresh(
     // Row must exist, be unexpired, and not already revoked.
     let row = sqlx::query!(
         r#"
-        SELECT rt.id as "id!", rt.user_id as "user_id!", u.email, u.password_hash, u.role as "role: crate::models::Role"
+        SELECT rt.id as "id!", rt.user_id as "user_id!", u.email, u.password_hash, u.role as "role: crate::models::Role",
+               u.status as "status: crate::models::UserStatus"
         FROM refresh_tokens rt
         JOIN users u ON u.id = rt.user_id
         WHERE rt.token_hash = $1 AND rt.revoked_at IS NULL AND rt.expires_at > now()
@@ -153,6 +159,10 @@ async fn refresh(
     .fetch_optional(&state.db)
     .await?
     .ok_or(AppError::Unauthorized)?;
+
+    if row.status == crate::models::UserStatus::Suspended {
+        return Err(AppError::Forbidden);
+    }
 
     // Rotate: revoke the used token, issue a fresh pair.
     sqlx::query!("UPDATE refresh_tokens SET revoked_at = now() WHERE id = $1", row.id)
@@ -169,6 +179,7 @@ async fn refresh(
             id: row.user_id,
             email: row.email,
             role: row.role,
+            status: row.status,
         },
     }))
 }
