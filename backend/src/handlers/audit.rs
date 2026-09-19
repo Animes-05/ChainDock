@@ -1,10 +1,10 @@
 use axum::{
     extract::{Path, State},
-    routing::get,
+    routing::{get, post},
     Json, Router,
 };
 use chrono::{DateTime, Utc};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use sqlx::{Postgres, Transaction};
 use uuid::Uuid;
@@ -12,6 +12,7 @@ use uuid::Uuid;
 use crate::{
     error::AppError,
     extractors::{require_role, AuthenticatedUser},
+    ledger_client,
     models::Role,
     AppState,
 };
@@ -19,7 +20,11 @@ use crate::{
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/audit/verify-chain", get(verify_chain))
-        .route("/cases/{id}/audit-trail", get(audit_trail))
+        .route("/cases/:id/audit-trail", get(audit_trail))
+        // DEMO ONLY — pitch-day tamper injection, admin-gated. Remove or gate
+        // before any real deployment; see ledger_client::demo_tamper_ledger.
+        .route("/audit/demo/tamper", post(demo_tamper))
+        .route("/audit/demo/restore", post(demo_restore))
 }
 
 /// Genesis hash for the first row in the chain — 64 zero chars, same length as a
@@ -109,21 +114,35 @@ struct VerifyChainResponse {
     valid: bool,
     total_entries: i64,
     broken_at_seq: Option<i64>,
-    broken_at_id: Option<Uuid>,
+    broken_at_id: Option<String>,
 }
 
-/// Admin only. Walks the whole chain in `seq` order, recomputes each entry_hash from
-/// its own stored fields, and checks two things per row:
-///   1. the recomputed hash matches the row's stored `entry_hash` (row content intact)
-///   2. the row's stored `prev_hash` matches the previous row's `entry_hash` (link intact)
-/// The first row to fail either check is the tamper point — everything from there on
-/// is unverifiable, which is exactly the "aha" moment the demo needs.
+/// Admin only. Ledger-first: proxies to GET /ledger/verify (Fabric integrity
+/// state) and translates to the stable frontend shape. Falls back to the
+/// Postgres mirror walk when the ledger is unreachable (P0 demo-safety).
 async fn verify_chain(
     State(state): State<AppState>,
     user: AuthenticatedUser,
 ) -> Result<Json<VerifyChainResponse>, AppError> {
     require_role(&user, &[Role::Admin])?;
 
+    match ledger_client::verify_ledger(&state.config.ledger_service_url).await {
+        Ok(v) => Ok(Json(VerifyChainResponse {
+            valid: v.valid,
+            total_entries: v.total_entries,
+            broken_at_seq: None,
+            broken_at_id: v.broken_at_id,
+        })),
+        Err(e) => {
+            tracing::warn!(error = %e, "ledger verify unreachable, falling back to Postgres mirror");
+            verify_postgres_chain(&state).await.map(Json)
+        }
+    }
+}
+
+async fn verify_postgres_chain(state: &AppState) -> Result<VerifyChainResponse, AppError> {
+    // Postgres mirror walk: recompute each entry_hash, check link integrity.
+    // First failing row is the tamper point.
     let rows = sqlx::query_as!(
         AuditRow,
         r#"SELECT seq, id, prev_hash, entry_hash, actor_id, action, document_id, case_id, created_at
@@ -136,12 +155,12 @@ async fn verify_chain(
 
     for row in &rows {
         if row.prev_hash != expected_prev {
-            return Ok(Json(VerifyChainResponse {
+            return Ok(VerifyChainResponse {
                 valid: false,
                 total_entries: rows.len() as i64,
                 broken_at_seq: Some(row.seq),
-                broken_at_id: Some(row.id),
-            }));
+                broken_at_id: Some(row.id.to_string()),
+            });
         }
 
         let recomputed = compute_entry_hash(
@@ -154,43 +173,116 @@ async fn verify_chain(
         );
 
         if recomputed != row.entry_hash {
-            return Ok(Json(VerifyChainResponse {
+            return Ok(VerifyChainResponse {
                 valid: false,
                 total_entries: rows.len() as i64,
                 broken_at_seq: Some(row.seq),
-                broken_at_id: Some(row.id),
-            }));
+                broken_at_id: Some(row.id.to_string()),
+            });
         }
 
         expected_prev = row.entry_hash.clone();
     }
 
-    Ok(Json(VerifyChainResponse {
+    Ok(VerifyChainResponse {
         valid: true,
         total_entries: rows.len() as i64,
         broken_at_seq: None,
         broken_at_id: None,
-    }))
+    })
 }
 
 #[derive(Serialize)]
 struct AuditTrailEntry {
-    id: Uuid,
-    actor_id: Uuid,
+    // String (not Uuid): Fabric entryIds are txIDs, and actorIds may be
+    // non-UUID strings. UUIDs from Postgres serialize identically as strings,
+    // so the frontend `String(e?.id)` normalization keeps working.
+    id: String,
+    actor_id: String,
     actor_email: String,
     action: String,
-    document_id: Option<Uuid>,
+    document_id: Option<String>,
     created_at: DateTime<Utc>,
 }
 
-/// Supervisor/admin only, per DESIGN.md. Chronological trail for one case — joins to
-/// `users` for a readable actor email instead of a bare UUID in the frontend table.
+/// Same access model as documents.rs::assert_case_access: supervisor/admin see every
+/// case's trail; an investigator only sees the trail for a case they're assigned to
+/// via case_assignments. This mirrors who can *see* a case at all in GET /cases —
+/// an investigator viewing their own case's audit trail is not a privilege escalation,
+/// it's the same data they already have access to via the case detail view.
+async fn assert_case_access(
+    state: &AppState,
+    user: &AuthenticatedUser,
+    case_id: Uuid,
+) -> Result<(), AppError> {
+    if matches!(user.role, Role::Supervisor | Role::Admin) {
+        return Ok(());
+    }
+
+    let assigned = sqlx::query_scalar!(
+        "SELECT 1 FROM case_assignments WHERE case_id = $1 AND user_id = $2",
+        case_id,
+        user.user_id
+    )
+    .fetch_optional(&state.db)
+    .await?;
+
+    if assigned.is_some() {
+        Ok(())
+    } else {
+        Err(AppError::Forbidden)
+    }
+}
+
+/// Open to all three roles, but scoped: investigators only get the trail for cases
+/// they're assigned to (assert_case_access); supervisor/admin get any case's trail.
+/// Ledger-first proxy to GET /ledger/cases/:id/trail, with Postgres mirror
+/// fallback when the ledger is unreachable.
 async fn audit_trail(
     State(state): State<AppState>,
     user: AuthenticatedUser,
     Path(case_id): Path<Uuid>,
 ) -> Result<Json<Vec<AuditTrailEntry>>, AppError> {
-    require_role(&user, &[Role::Supervisor, Role::Admin])?;
+    assert_case_access(&state, &user, case_id).await?;
+
+    match ledger_client::get_ledger_trail(&state.config.ledger_service_url, case_id).await {
+        Ok(entries) => {
+            let mut out = Vec::with_capacity(entries.len());
+            for e in entries {
+                // Resolve actor email when actor_id is a local user UUID;
+                // otherwise display the raw actor string (e.g. mock/demo ids).
+                let (actor_id, actor_email) = match e.actor_id.parse::<Uuid>() {
+                    Ok(uid) => {
+                        let email: Option<String> =
+                            sqlx::query_scalar!("SELECT email FROM users WHERE id = $1", uid)
+                                .fetch_optional(&state.db)
+                                .await?;
+                        (e.actor_id.clone(), email.unwrap_or_else(|| e.actor_id.clone()))
+                    }
+                    Err(_) => (e.actor_id.clone(), e.actor_id.clone()),
+                };
+                // parsed_timestamp() borrows `e`, so compute it before the
+                // struct literal below partially moves fields out of `e`.
+                let created_at = e.parsed_timestamp();
+                out.push(AuditTrailEntry {
+                    id: e.entry_id,
+                    actor_id,
+                    actor_email,
+                    action: e.action,
+                    document_id: if e.document_id.is_empty() {
+                        None
+                    } else {
+                        Some(e.document_id)
+                    },
+                    created_at,
+                });
+            }
+            return Ok(Json(out));
+        }
+        Err(e) => {
+            tracing::warn!(error = %e, %case_id, "ledger trail unreachable, falling back to Postgres mirror");
+        }
+    }
 
     let rows = sqlx::query!(
         r#"
@@ -206,14 +298,50 @@ async fn audit_trail(
     .await?
     .into_iter()
     .map(|r| AuditTrailEntry {
-        id: r.id,
-        actor_id: r.actor_id,
+        id: r.id.to_string(),
+        actor_id: r.actor_id.to_string(),
         actor_email: r.actor_email,
         action: r.action,
-        document_id: r.document_id,
+        document_id: r.document_id.map(|d| d.to_string()),
         created_at: r.created_at,
     })
     .collect();
 
     Ok(Json(rows))
+}
+
+#[derive(Deserialize)]
+struct DemoEntryBody {
+    entry_id: Option<String>,
+}
+
+/// DEMO ONLY (admin). Corrupts one ledger entry without updating its hash so
+/// the next GET /audit/verify-chain reports the breach. No entry_id = tamper
+/// the most recent entry. Proxied straight through from the Ledger Service.
+async fn demo_tamper(
+    State(state): State<AppState>,
+    user: AuthenticatedUser,
+    body: Option<Json<DemoEntryBody>>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    require_role(&user, &[Role::Admin])?;
+    // Lenient body: missing/empty body (or {"entry_id":null}) = tamper latest.
+    let entry_id = body.and_then(|b| b.0.entry_id);
+    let value =
+        ledger_client::demo_tamper_ledger(&state.config.ledger_service_url, entry_id).await?;
+    tracing::warn!(user_id = %user.user_id, "DEMO tamper injected via /audit/demo/tamper");
+    Ok(Json(value))
+}
+
+/// DEMO ONLY (admin). Undoes demo tampering (restores pre-tamper entry state).
+async fn demo_restore(
+    State(state): State<AppState>,
+    user: AuthenticatedUser,
+    body: Option<Json<DemoEntryBody>>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    require_role(&user, &[Role::Admin])?;
+    let entry_id = body.and_then(|b| b.0.entry_id);
+    let value =
+        ledger_client::demo_restore_ledger(&state.config.ledger_service_url, entry_id).await?;
+    tracing::warn!(user_id = %user.user_id, "DEMO restore via /audit/demo/restore");
+    Ok(Json(value))
 }

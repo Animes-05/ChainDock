@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
-use crate::{error::AppError, extractors::AuthenticatedUser, handlers::audit, models::Role, AppState};
+use crate::{error::AppError, extractors::AuthenticatedUser, handlers::audit, ledger_client, models::Role, AppState};
 
 // Local disk for MVP per ARCHITECTURE.md — swap for S3-compatible storage post-hackathon
 // if needed, not now.
@@ -17,9 +17,9 @@ const DOCUMENTS_DIR: &str = "data/documents";
 
 pub fn router() -> Router<AppState> {
     Router::new()
-        .route("/cases/{case_id}/documents", post(upload_document).get(list_documents))
-        .route("/documents/{id}", get(get_document))
-        .route("/documents/{id}/download", get(download_document))
+        .route("/cases/:case_id/documents", post(upload_document).get(list_documents))
+        .route("/documents/:id", get(get_document))
+        .route("/documents/:id/download", get(download_document))
 }
 
 /// Shared access check: supervisor/admin see every case; investigators only cases
@@ -165,6 +165,20 @@ async fn upload_document(
     audit::append_entry(&mut tx, user.user_id, "UPLOAD", Some(doc_id), Some(case_id)).await?;
 
     tx.commit().await?;
+
+    // Postgres commit first, ledger append second — no 2PC (see cases.rs).
+    // Best-effort for P0; Postgres row above is the fallback mirror.
+    if let Err(e) = ledger_client::append_ledger_entry(
+        &state.config.ledger_service_url,
+        user.user_id,
+        "UPLOAD",
+        Some(doc_id),
+        Some(case_id),
+    )
+    .await
+    {
+        tracing::error!(error = %e, %doc_id, %case_id, "ledger append failed after UPLOAD commit (gap in Fabric trail)");
+    }
 
     Ok(Json(DocumentResponse {
         id: doc_id,

@@ -1,0 +1,4 @@
+FIRST INFORMATION REPORT (DEMO RECORD — NOT A REAL CASE)
+Station: Demo Police Station | FIR No: DEMO-001 | Date: 2026-09-18
+Complainant: Demo User | Offence: Demo entry for ChainDock internal-round rehearsal.
+This file exists only so the multipart upload request has a body to send.

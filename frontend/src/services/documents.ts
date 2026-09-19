@@ -1,13 +1,20 @@
 import { api } from './api';
 import { Document } from '../types';
 import { computeSHA256 } from '../utils/validation';
+import { casesService } from './cases';
 
 export function normalizeDocument(d: any, fallback?: Partial<Document>): Document {
   const isTampered = Boolean(d?.is_tampered ?? d?.isTampered ?? fallback?.is_tampered ?? false);
-  const sha256Val = String(d?.sha256 || d?.hash || fallback?.sha256 || '');
-  const origSha256 = String(d?.original_sha256 || d?.originalSha256 || fallback?.original_sha256 || sha256Val);
+
+  // Backend (documents.rs DocumentResponse) returns `file_hash`, not `sha256`/`hash`.
+  const sha256Val = String(d?.file_hash ?? d?.fileHash ?? fallback?.sha256 ?? '');
+  const origSha256 = String(d?.original_file_hash ?? d?.originalFileHash ?? fallback?.original_sha256 ?? sha256Val);
+
   const created = String(d?.created_at || d?.createdAt || fallback?.created_at || new Date().toISOString());
   const uploadedBy = String(d?.uploaded_by || d?.uploadedBy || fallback?.uploaded_by || 'Investigating Officer');
+
+  // Backend (documents.rs DocumentResponse) returns `doc_type`, not `document_type`.
+  const documentType = String(d?.doc_type ?? d?.docType ?? fallback?.document_type ?? 'EVIDENTIARY_REPORT');
 
   let versionsList = Array.isArray(d?.versions) ? d.versions : fallback?.versions;
   if (!Array.isArray(versionsList) || versionsList.length === 0) {
@@ -35,7 +42,7 @@ export function normalizeDocument(d: any, fallback?: Partial<Document>): Documen
     case_id: String(d?.case_id || d?.caseId || fallback?.case_id || ''),
     case_number: String(d?.case_number || d?.caseNumber || fallback?.case_number || 'CASE-2026'),
     title: String(d?.title || fallback?.title || 'Untitled Document'),
-    document_type: String(d?.document_type || d?.documentType || fallback?.document_type || 'EVIDENTIARY_REPORT'),
+    document_type: documentType,
     description: String(d?.description || fallback?.description || ''),
     version: Number(d?.version || fallback?.version || 1),
     sha256: sha256Val,
@@ -57,9 +64,10 @@ export function normalizeDocument(d: any, fallback?: Partial<Document>): Documen
   };
 }
 
-export async function getDocuments(caseId?: string): Promise<Document[]> {
-  const url = caseId ? `/cases/${caseId}/documents` : '/documents';
-  const res = await api.get<Document[] | { documents: Document[] } | { data: Document[] } | { items: Document[] } | { results: Document[] }>(url);
+async function getDocumentsForCase(caseId: string, caseNumber?: string): Promise<Document[]> {
+  const res = await api.get<Document[] | { documents: Document[] } | { data: Document[] } | { items: Document[] } | { results: Document[] }>(
+    `/cases/${caseId}/documents`
+  );
   let rawList: any[] = [];
   if (Array.isArray(res.data)) {
     rawList = res.data;
@@ -75,7 +83,31 @@ export async function getDocuments(caseId?: string): Promise<Document[]> {
       rawList = d.results;
     }
   }
-  return rawList.map((doc) => normalizeDocument(doc));
+  return rawList.map((doc) => normalizeDocument(doc, { case_id: caseId, case_number: caseNumber }));
+}
+
+/**
+ * The backend has no flat "all documents" route by design (DESIGN.md scopes
+ * documents per-case through case_assignments access control). When no
+ * caseId is given, we fan out across every case the current user can already
+ * see via GET /cases and flatten the results, instead of calling a route
+ * that doesn't exist.
+ */
+export async function getDocuments(caseId?: string): Promise<Document[]> {
+  if (caseId) {
+    return getDocumentsForCase(caseId);
+  }
+
+  const cases = await casesService.getCases();
+  const perCase = await Promise.all(
+    cases.map((c) =>
+      getDocumentsForCase(c.id, c.case_number).catch((err) => {
+        console.warn(`Failed to load documents for case ${c.id}:`, err);
+        return [] as Document[];
+      })
+    )
+  );
+  return perCase.flat();
 }
 
 export async function getDocumentById(id: string): Promise<Document | null> {
@@ -98,6 +130,12 @@ export async function uploadDocument(
     classification?: string;
   }
 ): Promise<Document> {
+  // Note: the backend (documents.rs upload_document) computes file_hash itself
+  // server-side from the raw bytes and ignores any client-supplied hash field.
+  // We still compute this locally for the "live checksum" UI preview in
+  // DocumentUpload.tsx, but we no longer send it as `sha256`/expect the backend
+  // to use it — that field name doesn't exist in the multipart contract either
+  // (see documents.rs: fields are title, doc_type, description, file).
   let fileHash = '';
   try {
     const buffer = await file.arrayBuffer();
@@ -108,18 +146,9 @@ export async function uploadDocument(
 
   const formData = new FormData();
   formData.append('file', file);
-  formData.append('case_id', caseId);
-  formData.append('caseId', caseId);
   formData.append('title', data.title);
-  formData.append('document_type', data.documentType);
-  formData.append('documentType', data.documentType);
+  formData.append('doc_type', data.documentType);
   formData.append('description', data.description);
-  formData.append('uploaded_by', data.uploadedBy);
-  formData.append('uploadedBy', data.uploadedBy);
-  formData.append('sha256', fileHash);
-  if (data.classification) {
-    formData.append('classification', data.classification);
-  }
 
   let res;
   try {

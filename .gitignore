@@ -1,0 +1,7 @@
+# Ledger Service (Node) — never commit build output or deps (mirrors frontend/.gitignore)
+ledger-service/node_modules/
+ledger-service/dist/
+ledger-service/*.log
+
+# Local secrets (examples stay tracked)
+.env

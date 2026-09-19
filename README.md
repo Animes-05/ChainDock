@@ -1,6 +1,6 @@
 # ChainDock
 
-**CaseVault** — a secure digital document management system for legal & investigation
+**ChainDock** — a secure digital document management system for legal & investigation
 documents, built for Smart India Hackathon 2026, PS **SIH26190** (Ministry of Home
 Affairs, NCRB / Women Safety Division, Team ASPIRE).
 

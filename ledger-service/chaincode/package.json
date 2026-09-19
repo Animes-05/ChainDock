@@ -1,0 +1,27 @@
+{
+  "name": "chaindock-chaincode",
+  "version": "1.0.0",
+  "description": "ChainDock custody/audit chaincode — AppendEntry / GetHistory / GetEntry (see DESIGN.md §2)",
+  "main": "dist/index.js",
+  "typings": "dist/index.d.ts",
+  "engines": {
+    "node": ">=18",
+    "npm": ">=9"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "set -x && fabric-chaincode-node start",
+    "build:watch": "tsc -w",
+    "prepublishOnly": "npm run build"
+  },
+  "engineStrict": true,
+  "license": "Apache-2.0",
+  "dependencies": {
+    "fabric-contract-api": "^2.5.4",
+    "fabric-shim": "^2.5.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "typescript": "^5.4.5"
+  }
+}

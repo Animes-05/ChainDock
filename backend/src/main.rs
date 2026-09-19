@@ -4,6 +4,7 @@ mod error;
 mod extractors;
 mod handlers;
 mod jwt;
+mod ledger_client;
 mod models;
 
 use axum::Router;

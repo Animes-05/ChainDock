@@ -16,6 +16,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onClose }) => {
     { to: '/documents', label: 'Documents & FIRs', icon: 'description' },
     { to: '/evidence', label: 'Evidence & Custody', icon: 'policy' },
     { to: '/audit', label: 'Audit Chain', icon: 'history_edu' },
+    { to: '/ledger', label: 'Ledger Status', icon: 'lan' },
     { to: '/security', label: 'Security Center', icon: 'security' },
   ];
 

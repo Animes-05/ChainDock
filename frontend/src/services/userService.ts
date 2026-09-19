@@ -55,13 +55,9 @@ function toBackendRole(role?: string): 'Investigator' | 'Supervisor' | 'Admin' {
 
 export async function createUser(payload: CreateUserPayload): Promise<User> {
   const body = {
-    name: payload.name,
     email: payload.email,
-    role: toBackendRole(payload.role),
-    badge_number: payload.badge_number,
-    department: payload.department,
-    jurisdiction_node: payload.jurisdiction_node,
     password: payload.password || 'Temporary@123',
+    role: toBackendRole(payload.role),
   };
 
   try {
@@ -69,7 +65,6 @@ export async function createUser(payload: CreateUserPayload): Promise<User> {
     const created = res.data?.user || res.data;
     return normalizeUser(created);
   } catch (err: any) {
-    // If backend uses /auth/register for user provisioning, attempt fallback
     if (err?.status === 404) {
       const altRes = await api.post<any>('/auth/register', body);
       const created = altRes.data?.user || altRes.data;
@@ -102,7 +97,6 @@ export async function rotateUserKey(id: string): Promise<{ publicKey: string; ro
       rotatedAt: res.data?.rotated_at || new Date().toISOString(),
     };
   } catch (err) {
-    // If dedicated endpoint is not yet mounted on backend, fallback to PATCH
     const generatedKey = `ed25519:${Date.now().toString(16).substring(0, 10)}`;
     await updateUser(id, { status: 'ACTIVE' });
     return {

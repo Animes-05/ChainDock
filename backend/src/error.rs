@@ -31,6 +31,9 @@ pub enum AppError {
 
     #[error("bad request: {0}")]
     BadRequest(String),
+
+    #[error("ledger unavailable")]
+    Ledger(String),
 }
 
 impl IntoResponse for AppError {
@@ -46,6 +49,7 @@ impl IntoResponse for AppError {
             AppError::Forbidden => (StatusCode::FORBIDDEN, "forbidden"),
             AppError::NotFound => (StatusCode::NOT_FOUND, "not found"),
             AppError::BadRequest(_) => (StatusCode::BAD_REQUEST, "bad request"),
+            AppError::Ledger(_) => (StatusCode::BAD_GATEWAY, "ledger unavailable"),
             AppError::Database(_) | AppError::Hash(_) | AppError::Token(_) => {
                 (StatusCode::INTERNAL_SERVER_ERROR, "internal server error")
             }
