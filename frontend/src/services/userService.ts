@@ -46,11 +46,18 @@ export async function getUsers(): Promise<User[]> {
   return rawList.map(normalizeUser);
 }
 
+function toBackendRole(role?: string): 'Investigator' | 'Supervisor' | 'Admin' {
+  const r = String(role || '').toUpperCase();
+  if (r === 'ADMIN') return 'Admin';
+  if (r === 'SUPERVISOR') return 'Supervisor';
+  return 'Investigator';
+}
+
 export async function createUser(payload: CreateUserPayload): Promise<User> {
   const body = {
     name: payload.name,
     email: payload.email,
-    role: String(payload.role || 'investigator').toLowerCase(),
+    role: toBackendRole(payload.role),
     badge_number: payload.badge_number,
     department: payload.department,
     jurisdiction_node: payload.jurisdiction_node,
@@ -73,7 +80,11 @@ export async function createUser(payload: CreateUserPayload): Promise<User> {
 }
 
 export async function updateUser(id: string, payload: UpdateUserPayload): Promise<User> {
-  const res = await api.patch<any>(`/users/${id}`, payload);
+  const body = {
+    ...payload,
+    ...(payload.role ? { role: toBackendRole(payload.role) } : {}),
+  };
+  const res = await api.patch<any>(`/users/${id}`, body);
   const updated = res.data?.user || res.data;
   return normalizeUser(updated);
 }
