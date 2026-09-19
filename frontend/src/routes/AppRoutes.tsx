@@ -7,6 +7,7 @@ import { Dashboard } from '../pages/Dashboard';
 import { Cases } from '../pages/Cases';
 import { CaseDetails } from '../pages/CaseDetails';
 import { AuditLog } from '../pages/AuditLog';
+import { LedgerStatus } from '../pages/LedgerStatus';
 import { Documents } from '../pages/Documents';
 import { DocumentDetails } from '../pages/DocumentDetails';
 import { Evidence } from '../pages/Evidence';
@@ -53,6 +54,15 @@ export const AppRoutes: React.FC = () => {
         element={
           <ProtectedRoute>
             <AuditLog />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/ledger"
+        element={
+          <ProtectedRoute>
+            <LedgerStatus />
           </ProtectedRoute>
         }
       />

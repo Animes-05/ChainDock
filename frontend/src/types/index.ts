@@ -169,3 +169,12 @@ export interface AuditVerificationResult {
   witness_nodes_online: number;
   witness_nodes_total: number;
 }
+
+export interface LedgerHealthResponse {
+  status: string;
+  mode: 'mock' | 'fabric';
+}
+
+export interface BackendHealthResponse {
+  status: string;
+}

@@ -131,3 +131,6 @@ export class ApiClient {
 }
 
 export const api = new ApiClient();
+
+const LEDGER_URL = import.meta.env.VITE_LEDGER_URL || 'http://127.0.0.1:3001';
+export const ledgerApi = new ApiClient(LEDGER_URL);

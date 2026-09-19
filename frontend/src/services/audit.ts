@@ -1,5 +1,5 @@
-import { api } from './api';
-import { AuditEvent, AuditVerificationResult } from '../types';
+import { api, ledgerApi } from './api';
+import { AuditEvent, AuditVerificationResult, LedgerHealthResponse, BackendHealthResponse } from '../types';
 import { casesService } from './cases';
 
 export function normalizeAuditEvent(e: any, fallback?: { case_number?: string }): AuditEvent {
@@ -114,10 +114,22 @@ export async function resetAuditChain(entryId?: string): Promise<boolean> {
   }
 }
 
+export async function getLedgerHealth(): Promise<LedgerHealthResponse> {
+  const res = await ledgerApi.get<LedgerHealthResponse>('/health');
+  return res.data;
+}
+
+export async function getBackendHealth(): Promise<BackendHealthResponse> {
+  const res = await api.get<BackendHealthResponse>('/health');
+  return res.data;
+}
+
 export const auditService = {
   getAuditEvents,
   getAuditLogs: getAuditEvents,
   verifyAuditChain,
   injectTamperAtBlock150,
   resetAuditChain,
+  getLedgerHealth,
+  getBackendHealth,
 };
