@@ -60,18 +60,12 @@ export async function createUser(payload: CreateUserPayload): Promise<User> {
     role: toBackendRole(payload.role),
   };
 
-  try {
-    const res = await api.post<any>('/users', body);
-    const created = res.data?.user || res.data;
-    return normalizeUser(created);
-  } catch (err: any) {
-    if (err?.status === 404) {
-      const altRes = await api.post<any>('/auth/register', body);
-      const created = altRes.data?.user || altRes.data;
-      return normalizeUser(created);
-    }
-    throw err;
-  }
+  // Canonical route is POST /auth/register (backend/src/handlers/auth.rs).
+  // Bootstrap rule: open only while users table is empty; afterwards the
+  // caller must be an authenticated Admin (Bearer token is attached by ApiClient).
+  const res = await api.post<any>('/auth/register', body);
+  const created = res.data?.user || res.data;
+  return normalizeUser(created);
 }
 
 export async function updateUser(id: string, payload: UpdateUserPayload): Promise<User> {
@@ -89,21 +83,10 @@ export async function toggleUserStatus(id: string, currentStatus: 'ACTIVE' | 'SU
   return updateUser(id, { status: newStatus });
 }
 
-export async function rotateUserKey(id: string): Promise<{ publicKey: string; rotatedAt: string }> {
-  try {
-    const res = await api.post<any>(`/users/${id}/rotate-key`, {});
-    return {
-      publicKey: res.data?.public_key || res.data?.publicKey || `ed25519:${Date.now().toString(16)}`,
-      rotatedAt: res.data?.rotated_at || new Date().toISOString(),
-    };
-  } catch (err) {
-    const generatedKey = `ed25519:${Date.now().toString(16).substring(0, 10)}`;
-    await updateUser(id, { status: 'ACTIVE' });
-    return {
-      publicKey: generatedKey,
-      rotatedAt: new Date().toISOString(),
-    };
-  }
+export async function rotateUserKey(_id: string): Promise<{ publicKey: string; rotatedAt: string }> {
+  // Rotation is intentionally not implemented (no backend route by decision).
+  // Fail loudly instead of fabricating a key + firing a bogus PATCH /users/:id.
+  throw new Error('Key rotation is not available in this build (no backend endpoint).');
 }
 
 export function getKeyEnclaveDetails(user: User): KeyEnclaveDetails {
