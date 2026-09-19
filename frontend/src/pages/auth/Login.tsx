@@ -11,7 +11,6 @@ export const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [jurisdiction, setJurisdiction] = useState('Node Alpha');
-  const [sessionToken, setSessionToken] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -62,10 +61,10 @@ export const Login: React.FC = () => {
           </div>
           <div>
             <div className="text-white/95 font-semibold tracking-wide text-xs sm:text-[13px]">
-              Ministry of Home Affairs (NCRB, Women Safety Division) Team ASPIRE
+              Ministry of Home Affairs (NCRB, Women Safety Division)
             </div>
             <div className="text-emerald-300/70 text-[11px] font-normal tracking-wider">
-              SIH26190 · National Digital Evidence &amp; Case Integrity Repository
+              National Digital Evidence &amp; Case Integrity Repository
             </div>
           </div>
         </div>
@@ -111,25 +110,6 @@ export const Login: React.FC = () => {
                   Access is strictly restricted to designated police officers, forensic investigators, public prosecutors, and court magistrates. Every document upload, view, and tamper check is committed to an append-only SHA-256 hash chain.
                 </p>
               </div>
-
-              {/* Compliance Badges */}
-              <div className="space-y-2 mb-6">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-white/50 font-mono">
-                  Evidentiary Standards &amp; Crypto Specs
-                </div>
-                <div className="flex items-center justify-between p-2 rounded-lg bg-black/25 border border-white/5 text-xs">
-                  <span className="text-white/90">Sec. 65B Evidence Act / Sec 63 BSA</span>
-                  <span className="text-[10px] font-mono text-teal-300 bg-teal-950/70 px-2 py-0.5 rounded border border-teal-700/40">Compliant</span>
-                </div>
-                <div className="flex items-center justify-between p-2 rounded-lg bg-black/25 border border-white/5 text-xs">
-                  <span className="text-white/90">Append-Only Audit Hash-Chain</span>
-                  <span className="text-[10px] font-mono text-teal-300 bg-teal-950/70 px-2 py-0.5 rounded border border-teal-700/40">SHA-256</span>
-                </div>
-                <div className="flex items-center justify-between p-2 rounded-lg bg-black/25 border border-white/5 text-xs">
-                  <span className="text-white/90">Digital Signature on Finalize</span>
-                  <span className="text-[10px] font-mono text-teal-300 bg-teal-950/70 px-2 py-0.5 rounded border border-teal-700/40">Ed25519</span>
-                </div>
-              </div>
             </div>
 
             <div className="p-3 bg-black/30 rounded-xl border border-white/10 font-mono text-[11px] text-emerald-300/80 flex items-center justify-between">
@@ -154,7 +134,7 @@ export const Login: React.FC = () => {
                   Officer Identity Verification
                 </h2>
                 <p className="text-xs text-[#4e5c56]">
-                  Select your clearance portal, sign in with registered credentials, or use 1-click evaluator preview.
+                  Select your clearance portal, sign in with registered credentials, or use 1-click access.
                 </p>
               </div>
 
@@ -273,22 +253,6 @@ export const Login: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-semibold text-[#1a2b27] uppercase tracking-wider">
-                      MFA Hardware Token / TOTP
-                    </label>
-                    <span className="text-[10px] text-[#2e5d4b] font-mono font-bold">FIPS 140-3 COMPLIANT</span>
-                  </div>
-                  <input
-                    type="text"
-                    value={sessionToken}
-                    onChange={(e) => setSessionToken(e.target.value)}
-                    className="w-full h-10 px-3 bg-[#fff9ed] text-[#1a2b27] border border-[#d1dbcb] rounded text-xs focus:outline-none focus:border-[#2e5d4b] focus:ring-1 focus:ring-[#2e5d4b] font-mono"
-                    placeholder="6-digit MFA / TOTP token (optional)"
-                  />
-                </div>
-
                 <button
                   type="submit"
                   disabled={loading}
@@ -307,7 +271,7 @@ export const Login: React.FC = () => {
                 <div className="relative flex py-1 items-center">
                   <div className="flex-grow border-t border-[#d1dbcb]/60"></div>
                   <span className="flex-shrink mx-3 text-[10px] uppercase font-mono text-[#4e5c56]/80 font-semibold">
-                    or quick 1-click evaluator preview
+                    or quick 1-click access
                   </span>
                   <div className="flex-grow border-t border-[#d1dbcb]/60"></div>
                 </div>
@@ -345,7 +309,7 @@ export const Login: React.FC = () => {
 
       {/* Footer */}
       <footer className="w-full max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 pt-4 border-t border-[#1d352e]/80 text-[11px] text-white/50">
-        <div>SIH26190 · Problem Statement: Secure Digital Document Management System</div>
+        <div>ChainDock · Secure Digital Document &amp; Evidence Management System</div>
         <div>Axum / Postgres / Ed25519 DAL / Append-Only Hash-Chain</div>
       </footer>
     </div>

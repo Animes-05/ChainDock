@@ -113,13 +113,13 @@ export const AuditLog: React.FC = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            {/* PRD Pitch Highlight: Interactive Tamper Demo Triggers */}
+            {/* Security Verification: Tamper Simulation Trigger */}
             <button
               onClick={handleInjectTamper}
               className="h-9 sm:h-10 px-3.5 rounded bg-red-800 text-white hover:bg-red-900 text-xs font-mono font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-[0.99]"
             >
               <span className="material-symbols-outlined text-[18px]">bolt</span>
-              <span>Simulate Block Tamper (Demo)</span>
+              <span>Simulate Block Tamper</span>
             </button>
 
             {isChainTampered && (

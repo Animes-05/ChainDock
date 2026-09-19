@@ -59,7 +59,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onMenuToggle }) => {
             National Digital Evidence
           </span>
           <span className="text-[11px] sm:text-xs text-[#4e5c56] font-medium hidden sm:block truncate">
-            Cryptographic Case Repository · SIH26190
+            Cryptographic Case Repository
           </span>
         </div>
 
