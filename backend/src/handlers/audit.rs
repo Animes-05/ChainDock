@@ -20,6 +20,7 @@ use crate::{
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/audit/verify-chain", get(verify_chain))
+        .route("/audit/orgs", get(ledger_orgs))
         .route("/cases/:id/audit-trail", get(audit_trail))
         // DEMO ONLY — pitch-day tamper injection, admin-gated. Remove or gate
         // before any real deployment; see ledger_client::demo_tamper_ledger.
@@ -203,6 +204,9 @@ struct AuditTrailEntry {
     action: String,
     document_id: Option<String>,
     created_at: DateTime<Utc>,
+    /// Logical org (POLICE/COURT/FORENSICS); '' when unset (back-compat).
+    #[serde(default)]
+    org_id: String,
 }
 
 /// Same access model as documents.rs::assert_case_access: supervisor/admin see every
@@ -275,6 +279,7 @@ async fn audit_trail(
                         Some(e.document_id)
                     },
                     created_at,
+                    org_id: e.org_id,
                 });
             }
             return Ok(Json(out));
@@ -304,6 +309,7 @@ async fn audit_trail(
         action: r.action,
         document_id: r.document_id.map(|d| d.to_string()),
         created_at: r.created_at,
+        org_id: String::new(),
     })
     .collect();
 
@@ -344,4 +350,19 @@ async fn demo_restore(
         ledger_client::demo_restore_ledger(&state.config.ledger_service_url, entry_id).await?;
     tracing::warn!(user_id = %user.user_id, "DEMO restore via /audit/demo/restore");
     Ok(Json(value))
+}
+
+/// Multi-org demo: per-org entry counts, proxied from GET /ledger/orgs.
+/// Open to all authenticated roles; returns [] when the ledger is unreachable.
+async fn ledger_orgs(
+    State(state): State<AppState>,
+    _user: AuthenticatedUser,
+) -> Result<Json<Vec<ledger_client::LedgerOrgCount>>, AppError> {
+    match ledger_client::get_ledger_orgs(&state.config.ledger_service_url).await {
+        Ok(orgs) => Ok(Json(orgs)),
+        Err(e) => {
+            tracing::warn!(error = %e, "ledger orgs unreachable, returning empty");
+            Ok(Json(Vec::new()))
+        }
+    }
 }

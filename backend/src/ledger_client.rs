@@ -35,6 +35,9 @@ pub struct LedgerEntry {
     pub timestamp: String,
     #[serde(rename = "entryHash")]
     pub entry_hash: String,
+    /// Logical org (POLICE/COURT/FORENSICS); '' when unset (back-compat).
+    #[serde(rename = "orgId", default)]
+    pub org_id: String,
 }
 
 impl LedgerEntry {
@@ -59,6 +62,8 @@ struct AppendBody {
     document_id: String,
     case_id: String,
     timestamp: String,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    org_id: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -78,6 +83,21 @@ fn base(base_url: &str) -> String {
     base_url.trim_end_matches('/').to_string()
 }
 
+/// Canonical logical orgs for the simulated multi-org demo (Option A).
+/// Unknown values become '' (back-compat, hashes exactly as before).
+fn normalize_org_id(raw: &str) -> String {
+    match raw.trim().to_uppercase().as_str() {
+        "POLICE" | "COURT" | "FORENSICS" => raw.trim().to_uppercase(),
+        _ => String::new(),
+    }
+}
+
+/// Default org tag applied when a handler doesn't specify one.
+/// Set DEFAULT_ORG=POLICE (etc.) on Railway to tag all writes from this instance.
+fn default_org() -> String {
+    normalize_org_id(&std::env::var("DEFAULT_ORG").unwrap_or_default())
+}
+
 /// Append one custody/audit event. Call AFTER the Postgres transaction commits —
 /// there is no shared 2-phase commit between Postgres and Fabric (see
 /// ARCHITECTURE.md §4). A Postgres row with no ledger entry is a gap to log
@@ -88,13 +108,23 @@ pub async fn append_ledger_entry(
     action: &str,
     document_id: Option<Uuid>,
     case_id: Option<Uuid>,
+    org_id: Option<&str>,
 ) -> Result<String, AppError> {
+    let org = {
+        let explicit = normalize_org_id(org_id.unwrap_or_default());
+        if explicit.is_empty() {
+            default_org()
+        } else {
+            explicit
+        }
+    };
     let body = AppendBody {
         actor_id: actor_id.to_string(),
         action: action.to_string(),
         document_id: document_id.map(|d| d.to_string()).unwrap_or_default(),
         case_id: case_id.map(|c| c.to_string()).unwrap_or_default(),
         timestamp: Utc::now().to_rfc3339(),
+        org_id: org,
     };
     let url = format!("{}/ledger/entries", base(base_url));
     let res = client()
@@ -135,6 +165,38 @@ pub async fn get_ledger_trail(
     res.json::<Vec<LedgerEntry>>()
         .await
         .map_err(|e| AppError::Ledger(format!("ledger trail bad body: {e}")))
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct LedgerOrgCount {
+    pub org_id: String,
+    pub count: i64,
+}
+
+/// Proxies GET /ledger/orgs (mock-mode per-org counts for the multi-org demo).
+pub async fn get_ledger_orgs(base_url: &str) -> Result<Vec<LedgerOrgCount>, AppError> {
+    let url = format!("{}/ledger/orgs", base(base_url));
+    let res = client()
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| AppError::Ledger(format!("ledger orgs unreachable: {e}")))?;
+    if !res.status().is_success() {
+        return Err(AppError::Ledger(format!(
+            "ledger orgs rejected: {}",
+            res.status()
+        )));
+    }
+    #[derive(Deserialize)]
+    struct OrgsResponse {
+        #[serde(default)]
+        orgs: Vec<LedgerOrgCount>,
+    }
+    let parsed: OrgsResponse = res
+        .json()
+        .await
+        .map_err(|e| AppError::Ledger(format!("ledger orgs bad body: {e}")))?;
+    Ok(parsed.orgs)
 }
 
 /// DEMO ONLY — forwards tamper injection to the Ledger Service (mock mode).

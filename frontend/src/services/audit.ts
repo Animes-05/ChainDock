@@ -25,6 +25,7 @@ export function normalizeAuditEvent(e: any, fallback?: { case_number?: string })
     prev_hash: String(e?.prev_hash || e?.prevHash || ''),
     entry_hash: String(e?.entry_hash || e?.entryHash || e?.id || ''),
     status: statusStr === 'TAMPERED' ? 'TAMPERED' : 'VALID',
+    org_id: String(e?.org_id || e?.orgId || ''),
   };
 }
 
@@ -79,8 +80,9 @@ export async function verifyAuditChain(): Promise<AuditVerificationResult> {
     failed_block_number: raw?.broken_at_seq ?? undefined,
     reason: raw?.broken_at_id ? 'entry_hash or prev_hash mismatch' : undefined,
     latency_ms: 0,
-    witness_nodes_online: 1,
-    witness_nodes_total: 1,
+    // Simulated multi-org demo (Option A): 3 logical orgs share one ledger.
+    witness_nodes_online: 3,
+    witness_nodes_total: 3,
   };
 }
 
@@ -119,6 +121,22 @@ export async function getLedgerHealth(): Promise<LedgerHealthResponse> {
   return res.data;
 }
 
+export interface LedgerOrgCount {
+  org_id: string;
+  count: number;
+}
+
+export async function getLedgerOrgs(): Promise<LedgerOrgCount[]> {
+  try {
+    const res = await api.get<LedgerOrgCount[] | { orgs: LedgerOrgCount[] }>('/audit/orgs');
+    if (Array.isArray(res.data)) return res.data;
+    return (res.data as { orgs: LedgerOrgCount[] })?.orgs ?? [];
+  } catch (err) {
+    console.warn('Failed to load ledger orgs:', err);
+    return [];
+  }
+}
+
 export async function getBackendHealth(): Promise<BackendHealthResponse> {
   const res = await api.get<BackendHealthResponse>('/health');
   return res.data;
@@ -127,6 +145,7 @@ export async function getBackendHealth(): Promise<BackendHealthResponse> {
 export const auditService = {
   getAuditEvents,
   getAuditLogs: getAuditEvents,
+  getLedgerOrgs,
   verifyAuditChain,
   injectTamperAtBlock150,
   resetAuditChain,

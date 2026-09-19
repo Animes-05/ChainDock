@@ -156,6 +156,13 @@ export interface AuditEvent {
   prev_hash: string;
   entry_hash: string;
   status: 'VALID' | 'TAMPERED';
+  /** Logical org (POLICE/COURT/FORENSICS); '' when unset. */
+  org_id?: string;
+}
+
+export interface LedgerOrgCount {
+  org_id: string;
+  count: number;
 }
 
 export interface AuditVerificationResult {

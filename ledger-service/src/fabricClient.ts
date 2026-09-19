@@ -64,9 +64,11 @@ export async function fabricAppend(
   documentId: string,
   caseId: string,
   timestamp: string,
+  orgId = '',
 ): Promise<string> {
   const c = await getContract();
   // Chaincode returns entryId (= txID). submitTransaction returns Uint8Array bytes.
+  // orgId is appended last; chaincode treats missing arg as '' for back-compat.
   const result: Uint8Array = await c.submitTransaction(
     'AppendEntry',
     actorId,
@@ -74,6 +76,7 @@ export async function fabricAppend(
     documentId,
     caseId,
     timestamp,
+    orgId,
   );
   trackCaseId(caseId);
   return Buffer.from(result).toString('utf8');

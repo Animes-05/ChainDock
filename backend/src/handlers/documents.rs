@@ -174,6 +174,7 @@ async fn upload_document(
         "UPLOAD",
         Some(doc_id),
         Some(case_id),
+        None,
     )
     .await
     {

@@ -1,0 +1,21 @@
+# ChainDock frontend — Netlify (Option A)
+[build]
+  base = "frontend/"
+  command = "npm run build"
+  publish = "frontend/dist/"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# SPA fallback: React Router routes (/cases/:id, /ledger, …) serve index.html
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Required build-time env (Netlify UI → Site settings → Environment):
+#   VITE_API_URL    = https://<backend>.railway.app   (no trailing slash)
+#   VITE_LEDGER_URL = https://<ledger>.railway.app    (health badge only; trails/verify go via backend)
+#   VITE_APP_NAME   = ChainDock
+#   VITE_NODE_ID    = JURISDICTION_ALPHA_7
+# NOTE: Vite bakes VITE_* at build time — changing a URL requires a rebuild/redeploy.
